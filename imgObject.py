@@ -10,6 +10,8 @@ from mpl_toolkits.axes_grid1 import Divider, Size
 from mpl_toolkits.axes_grid1.mpl_axes import Axes
 from matplotlib.colors import ListedColormap
 from scipy.signal import medfilt2d
+from tkinter import PhotoImage
+from PIL import Image
 
 
 class imgObject():
@@ -26,6 +28,11 @@ class imgObject():
         self.color = self.defineJet()
         self.figure = plt.figure(figsize=(6, 6),frameon=False)
         self.listDicom = listDicom
+        self.colorName = ""
+        self.grayName = ""
+        self.imgEcho = None
+        self.imgStar = None
+        self.size = ()
         for ds in listDicom:
             self.listEchoTime.append(ds.EchoTime/1000) 
         
@@ -111,34 +118,37 @@ class imgObject():
             self.imgMatrix[i] = math.inf if t[0] == 0 else 1000/t[0]
 
         #Reshape T2 for the size needed
-        self.imgMatrix = np.reshape(self.imgMatrix,(400,400))
+        self.imgMatrix = np.reshape(self.imgMatrix,(len(image_mean[0]),len(image_mean[0][0])))
+        self.size = self.imgMatrix.shape
         toc = time.perf_counter()
         print(f"Executed in {toc - tic:0.4f} seconds")
 
     def plotFigure(self,plot):
-        colorName = '{0}\imgs\color{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-        grayName = '{0}\imgs\gray{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-        self.exportFigure(colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
-        self.exportFigure(grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
-        
-    #     ax = plt.Axes(fig, [0., 0., 1., 1.])
-    #     ax.set_axis_off()
-    #     # self.figure.add_axes(ax)
-    #     # fig.savefig('figure.png', dpi=1)
-        
-    #     # plt.axis('off')
-    #     ax.imshow(self.imgMatrix,cmap=matplot.cm.get_cmap('gray_r'))
-    #     grayName = '{0}\imgs\gray{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-    #     self.figure.savefig(grayName,bbox_inches='tight')
+        #deletar imagens da pasta antes
+        self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
+        self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
+        self.exportFigure(self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
+        self.exportFigure(self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
+        self.imgEcho = PhotoImage(file=self.grayName)
+        self.imgStar = PhotoImage(file=self.colorName)
+        #     ax = plt.Axes(fig, [0., 0., 1., 1.])
+        #     ax.set_axis_off()
+        #     # self.figure.add_axes(ax)
+        #     # fig.savefig('figure.png', dpi=1)
+            
+        #     # plt.axis('off')
+        #     ax.imshow(self.imgMatrix,cmap=matplot.cm.get_cmap('gray_r'))
+        #     grayName = '{0}\imgs\gray{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
+        #     self.figure.savefig(grayName,bbox_inches='tight')
 
-    #     plt.clf()
-    #     ax = plt.Axes(fig, [0., 0., 1., 1.])
-    #     ax.set_axis_off()
+        #     plt.clf()
+        #     ax = plt.Axes(fig, [0., 0., 1., 1.])
+        #     ax.set_axis_off()
 
-    #     # plt.axis('off')
-    #     ax.imshow(self.imgMatrix, cmap=self.color, vmin=self.minColor, vmax=self.maxColor)
-    #     colorName = '{0}\imgs\color{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-    #     self.figure.savefig(colorName,bbox_inches='tight')
+        #     # plt.axis('off')
+        #     ax.imshow(self.imgMatrix, cmap=self.color, vmin=self.minColor, vmax=self.maxColor)
+        #     colorName = '{0}\imgs\color{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
+        #     self.figure.savefig(colorName,bbox_inches='tight')
         
         if plot:
             plt.show()
@@ -159,6 +169,7 @@ class imgObject():
         """
         docstring
         """
+
     def exportFigure(self, f_name, cmap, dpi=200, resize_fact=1, plt_show=False, vmin=None, vmax=None):
         """
         Export array as figure in original resolution
@@ -171,6 +182,7 @@ class imgObject():
         fig = plt.figure(frameon=False)
         fig.set_size_inches(self.imgMatrix.shape[1]/dpi, self.imgMatrix.shape[0]/dpi)
         ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_facecolor('navy')
         ax.set_axis_off()
         fig.add_axes(ax)
         ax.imshow(self.imgMatrix,cmap=cmap, vmin=vmin, vmax=vmax)
@@ -179,9 +191,6 @@ class imgObject():
             plt.show()
         else:
             plt.close()   
-
-
-
         # h = [Size.Fixed(1.0), Size.Fixed(5.)]
         # v = [Size.Fixed(1.0), Size.Fixed(5.)]
         # divider = Divider(self.figure, (0.0, 0.0, 1., 1.), h, v, aspect=False)

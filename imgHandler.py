@@ -1,8 +1,10 @@
 import os
 import time
 import pydicom
+from tkinter import filedialog as dialog
 from imgObject import imgObject
 
+#remover - transformar em func
 class ImgHandler():
     """
     """
@@ -14,9 +16,11 @@ class ImgHandler():
         """
         docstring
         """
-        imageFolder = "C:\\Users\\Feirron\\Downloads\\MAPAS\\Mapas T2 - Melhorias\\Processamento normal\\"
-        files = os.listdir(imageFolder)
-        files = [imageFolder + f for f in files]
+        ####SEPARAR POR EXAME
+        files = dialog.askopenfilenames()
+        #imageFolder = "C:\\Users\\Feirron\\Downloads\\MAPAS\\Mapas T2 - Melhorias\\Processamento normal\\"
+        #files = os.listdir(imageFolder)
+        #files = [imageFolder + f for f in files]
         dl = []
         for f in files:
             dl.append(pydicom.dcmread(f))
