@@ -172,13 +172,13 @@ class imgObject():
             plt.close()   
 
     def replace(self,roiList):
-        cvEcho = cv2.imread(self.grayName)
-        cvStar = cv2.imread(self.colorName)
+        cvEcho = cv2.imread(self.grayName) # pylint: disable=maybe-no-member
+        cvStar = cv2.imread(self.colorName) # pylint: disable=maybe-no-member
         #alpha = cvEcho[:,:,3]
         for roi in roiList:
             mask = np.zeros(self.size, np.uint8)
             if roi.shape == Shape.RECTANGLE:
-                mask = cv2.rectangle(mask,roi.start,roi.end,(255, 255, 255), -1) 
+                mask = cv2.rectangle(mask,roi.start,roi.end,(255, 255, 255), -1) # pylint: disable=maybe-no-member
             elif roi.shape == Shape.CIRCLE:
                 #Para o circulo precisamos do centro e do raio
                 #Então temos que fazer alguns calculos
@@ -189,11 +189,11 @@ class imgObject():
                 #Para o raio, é só usar a mesma logica do centro
                 #Só que sem somar o zero do Roi
                 radius = int((roi.x2-roi.x1)/2)
-                mask = cv2.circle(mask,circleCenter,radius,(255, 255, 255), -1) 
-            mask_inv = cv2.bitwise_not(mask)
-            imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv)
-            imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask)
-            cvEcho = cv2.add(imgEcho_bg,imgStar_fg)
+                mask = cv2.circle(mask,circleCenter,radius,(255, 255, 255), -1) # pylint: disable=maybe-no-member
+            mask_inv = cv2.bitwise_not(mask) # pylint: disable=maybe-no-member
+            imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv) # pylint: disable=maybe-no-member
+            imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
+            cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
         #cvEcho = np.dstack([cvEcho, alpha])
         self.resultImage = Image.fromarray(cvEcho)
             

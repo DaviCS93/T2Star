@@ -31,8 +31,8 @@ class MainForm():
         self.mainFrame = tk.Frame(self.root,bg="black")
         self.mainFrame.grid(row=0,column=0,sticky=tk.NSEW)
         self.mainFrame.rowconfigure(1,weight=1)
-        for i in range(4):
-            self.mainFrame.columnconfigure(i,weight=1)
+        self.mainFrame.columnconfigure(0,weight=1,uniform="mainframe")
+        self.mainFrame.columnconfigure(1,weight=4,uniform="mainframe")
         self.mainFrame.bind(("<Escape>",self.clearCursor))
     #editMenu
         self.editMenu = tk.Frame(self.mainFrame,bg="blue")
@@ -46,15 +46,7 @@ class MainForm():
         
     #notebook
         self.notebook = ttk.Notebook(self.mainFrame,name=txt.NOTEBOOK)
-        self.notebook.grid(row=1,column=1,columnspan=3,sticky=tk.NSEW)
-        # test = tk.Frame(self.notebook,bg="red")
-        # test.rowconfigure(0,weight=1)
-        # test.columnconfigure(0,weight=1)
-        # self.notebook.add(test)
-        # testc = tk.Canvas(master=test,bg="yellow")
-        # testc.pack(expand=1, fill=tk.BOTH)
-        # testc.grid(row=0,column=0)
-        # testc.configure(width=500,height=100)
+        self.notebook.grid(row=1,column=1,sticky=tk.NSEW)
         self.root.update()
         self.notebook.bind("<<NotebookTabChanged>>", self.onEnvChange)
     #topMenu
@@ -114,8 +106,8 @@ class MainForm():
             frm = tk.Frame(self.notebook,bg="red",name=env.examID)
             self.notebook.add(frm,text=env.examID)
             frm.rowconfigure(0,weight=1)
-            frm.columnconfigure(0,weight=2)
-            frm.columnconfigure(1,weight=1)
+            frm.columnconfigure(0,weight=2,uniform='notebook')
+            frm.columnconfigure(1,weight=1,uniform='notebook')
             # Adicionando a janela do exame dentro da aba
             env.examFrame = tk.Frame(frm,bg="green",name=txt.EXAMIMAGE)
             env.examFrame.rowconfigure(0,weight=1)

@@ -37,12 +37,4 @@ class dicomHandler():
         """
         pass
 
-if __name__ == "__main__":
-    handler = ImgHandler()
-    handler.defineListEcho()
-    for img in handler.listImg:
-        imgObject.plotFigure
-        img.createFigure()
-        img.plotFigure(False)
-        img.saveImg()    
     
