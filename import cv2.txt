@@ -1,0 +1,17 @@
+import cv2    
+import os
+import tkinter as tk
+
+PROJECT_PATH = os.path.dirname(__file__)
+PROJECT_UI = os.path.join(PROJECT_PATH, "mainForm.ui")
+IMG1 = os.path.join(PROJECT_PATH,'imgs','color506272653.png')
+IMG2 = os.path.join(PROJECT_PATH,'imgs','gray506272653.png')
+
+img1 = cv2.imread(IMG1)
+img2 = cv2.imread(IMG2)
+
+dst = cv2.addWeighted(img1, 1, img2, 1, 0)
+
+cv2.imshow('test',dst)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
