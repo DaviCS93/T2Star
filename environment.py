@@ -1,16 +1,22 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import ImageTk
-from random import random
+from enumInterface import Texts as txt
+from imgObject import imgObject as imgObj
+from threading import Thread
+
 
 class Environment:
 
-    def __init__(self, imgObj):
+    def __init__(self,examID,dicomList):
         # ID do exame TODO
-        self.examID = str(random()).split('.')[-1]
+        self.examID = examID
         # Obj de imagem relacionado a esse ambiente (aba)
-        self.imgObj = imgObj
+        self.imgObj = imgObj(dicomList)
         # Lista de Rois aplicadas na imagem
         self.roiList = [] #ROI()
+        # Lista de Draws aplicadas na imagem
+        self.drawList = [] 
         # Canvas da imagem (para poder desenhar as roi's)
         self.resultCanvas = None
         # Frame de apresentação da imagem do exame
@@ -41,5 +47,38 @@ class Environment:
             self.imgObj.activeZoom *= self.zoomFactor
         else:
             self.imgObj.activeZoom /= self.zoomFactor
-        self.updateImage()
-            
+
+    def createExamViewer(self,frm):
+        self.examFrame = ttk.Frame(frm,name=txt.EXAMIMAGE)
+        self.examFrame.rowconfigure('0 1 2 3',weight=1,uniform='examFrame')
+        self.examFrame.columnconfigure(0,weight=1)
+        self.examFrame.grid(row=0,column=0,sticky=tk.NSEW)    
+        self.resultCanvas = tk.Canvas(master=self.examFrame)
+        self.resultCanvas.grid(row=0,rowspan=4,column=0)  
+        self.createColorScale()
+
+    def createColorScale(self):
+        self.maxColorScale = tk.DoubleVar(self.examFrame)
+        self.minColorScale = tk.DoubleVar(self.examFrame)
+        self.maxUpScaleStr = tk.StringVar(self.examFrame)
+        self.minUpScaleStr = tk.StringVar(self.examFrame)
+        self.maxLoScaleStr = tk.StringVar(self.examFrame)
+        self.minLoScaleStr = tk.StringVar(self.examFrame)
+
+        self.maxUpScaleStr.set(self.imgObj.maxColor)
+        self.minUpScaleStr.set(int(self.imgObj.maxColor/2))
+        self.maxLoScaleStr.set(int(self.imgObj.maxColor/2))
+        self.minLoScaleStr.set(self.imgObj.minColor)
+
+        self.upperColorScale = ttk.Scale(self.examFrame,orient=tk.VERTICAL,variable=self.maxColorScale).grid(row=0,column=1,rowspan=2,sticky='NSW')
+        self.lowerColorScale = ttk.Scale(self.examFrame,orient=tk.VERTICAL,variable=self.minColorScale).grid(row=2,column=1,rowspan=2,sticky='NSW')
+        self.maxUpperScaleLabel = ttk.Label(self.examFrame,textvariable=self.maxUpScaleStr).grid(row=0,column=2,sticky=tk.NW)
+        self.minUpperScaleLabel = ttk.Label(self.examFrame,textvariable=self.minUpScaleStr).grid(row=1,column=2,sticky=tk.SW)
+        self.maxLowerScaleLabel = ttk.Label(self.examFrame,textvariable=self.maxLoScaleStr).grid(row=2,column=2,sticky=tk.NW)
+        self.minLowerScaleLabel = ttk.Label(self.examFrame,textvariable=self.minLoScaleStr).grid(row=3,column=2,sticky=tk.SW)
+        
+        #self.scalesWatcher = Thread(self.updateColor)
+        # self.scalesWatcher.start()
+    
+    def updateColor(self):
+        pass

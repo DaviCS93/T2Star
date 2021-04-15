@@ -4,37 +4,24 @@ import pydicom
 from tkinter import filedialog as dialog
 from imgObject import imgObject
 
-#remover - transformar em func
-class dicomHandler():
+# Handler responsável por abrir os arquivos dicom
+# e extrair as informações + imagens
+
+def openDicomFiles():
     """
+    docstring
     """
-    def __init__(self):
-        self.listImg = []
-        self.size = [0,0]
+    # Dicionário de exames geral (ExamID - lista de arquivos)
+    examFileDict = {}   
+    # Lista de exames com o mesmo ID
+    files = dialog.askopenfilenames()
+    for f in files:
+        dcm = pydicom.dcmread(f)
+        if dcm.StudyID in examFileDict.keys():
+            examFileDict[dcm.StudyID].append(dcm)
+        else:
+            examFileDict[dcm.StudyID] = [dcm]
+    return examFileDict
 
-    def defineListEcho(self):
-        """
-        docstring
-        """
-        ####SEPARAR POR EXAME
-        files = dialog.askopenfilenames()
-        dl = []
-        for f in files:
-            dl.append(pydicom.dcmread(f))
-            #TODO Ler o dicom e separar para cada exame uma imagem
-        self.listImg.append(imgObject(dl))
-
-    def createROI(self):
-        """
-        docstring
-        """
-        pass
-
-   
-    def deleteROI(self):
-        """
-        docstring
-        """
-        pass
 
     

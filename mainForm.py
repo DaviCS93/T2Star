@@ -1,78 +1,112 @@
 import tkinter as tk
+from sys import exit as closeThread
+from threading import Thread
 from tkinter import ttk
-from errorHandler import LOGTYPE,printLog
-
-import editMenu as edit
-from dicomHandler import dicomHandler
-from environment import Environment
-from shape import Shape
+from ttkthemes import ThemedTk
+import dicomHandler as dcmHandler
+import editMenuMethods as edit
 from enumInterface import Buttons as btns
 from enumInterface import Labels as lbls
 from enumInterface import Texts as txt
 from enumInterface import TopMenuLabels as lblsTop
-from threading import Thread
-from sys import exit as closeThread
+from environment import Environment
+from errorHandler import LOGTYPE, printLog
+from shape import Shape
+
+
 class MainForm():
     
     def __init__(self):
+        """
+        Inicializa as variaveis usadas
+        e também carrega o form principal
+        """
+        # Dicionário de ambientes (aba + exame)
         self.envDict = {}
+        # Dicionário de exames
+        self.examDict = {}
+        # Lista de threads para carregar os exames
         self.loaderList = []
         self.envActive = None
-        self.formStyle()
+        self.setForm()
         self.root.mainloop()
 
-    def formStyle(self):
-        #root
-        self.root = tk.Tk()
+    def setForm(self):
+        """
+        Basicamente chama os metodos de construção do form,
+        separado por estrutura (menus, abas, etc)
+        """
+        self.setRoot()
+        self.setMainFrame()
+        self.setEditMenu()
+        self.setNotebook()
+        self.setTopMenu()
+
+    def setRoot(self):
+        self.root = ThemedTk(theme="Adapta")
         self.root.rowconfigure(0,weight=1)
         self.root.columnconfigure(0,weight=1)
         self.root.state('zoomed')
-    #mainFrame
-        self.mainFrame = tk.Frame(self.root,bg="black")
+        
+    def setMainFrame(self):
+        self.mainFrame = ttk.Frame(self.root)
         self.mainFrame.grid(row=0,column=0,sticky=tk.NSEW)
         self.mainFrame.rowconfigure(1,weight=1)
         self.mainFrame.columnconfigure(0,weight=1,uniform="mainframe")
         self.mainFrame.columnconfigure(1,weight=4,uniform="mainframe")
         self.mainFrame.bind(("<Escape>",self.clearCursor))
-    #editMenu
-        self.editMenu = tk.Frame(self.mainFrame,bg="blue")
+
+    def setEditMenu(self):
+        self.drawThickness = tk.DoubleVar(self.root)
+
+        self.editMenu = ttk.Frame(self.mainFrame)
         self.editMenu.grid(row=1,column=0,sticky=tk.NSEW)
-        self.editMenu.columnconfigure(0,weight=1)
+        #self.editMenu.columnconfigure(0,weight=1)
         ttk.Button(self.editMenu,text=btns.RECTANGLE,command=lambda: self.cbRoi(Shape.RECTANGLE)).grid(row=1,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.CIRCLE,command=lambda: self.cbRoi(Shape.CIRCLE)).grid(row=2,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.DRAW,command=lambda: self.cbDraw()).grid(row=3,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.ZOOM_IN,command=lambda: self.cbZoom(True)).grid(row=4,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.ZOOM_OUT,command=lambda: self.cbZoom(False)).grid(row=5,column=0,sticky=tk.NW)
-        
-    #notebook
+
+        ttk.Scale(self.editMenu,orient=tk.HORIZONTAL,variable=self.drawThickness).grid(row=3,column=1,sticky=tk.NW)
+
+    def setNotebook(self):
         self.notebook = ttk.Notebook(self.mainFrame,name=txt.NOTEBOOK)
         self.notebook.grid(row=1,column=1,sticky=tk.NSEW)
         self.root.update()
         self.notebook.bind("<<NotebookTabChanged>>", self.onEnvChange)
-    #topMenu
+
+    def setTopMenu(self):
+        #self.menubar = tk.Menu(self.root,tearoff=False)
+        self.ttkMenubar = ttk.Menubutton(self.root)
         self.menubar = tk.Menu(self.root,tearoff=False)
+        self.ttkMenubar['menu'] = self.menubar
         self.fileMenu = tk.Menu(self.menubar, tearoff=False)
         self.menubar.add_cascade(label=lblsTop.FILE, underline=0, menu=self.fileMenu)
         self.fileMenu.add_command(label=lblsTop.LOADEXAM, underline=0,  compound=tk.LEFT,command=self.loadExam)
         self.root.config(menu = self.menubar) 
-    
-    def loader(self,img):
-        # img.createFigure()
-        img.plotFigure(False)
-        self.envActive = Environment(img)
-        self.loadImageNotebook(self.envActive)
+
+    def loader(self,examID,dicomList):
+        """
+        Alvo da thread para criação de novos ambientes (abas)
+        """
+        self.envActive = Environment(examID,dicomList)
+        self.loadImageNotebook()
 
     def loadExam(self):
-        handler = dicomHandler()
-        handler.defineListEcho()
-        for img in handler.listImg:
-                self.loader(img)
+        """
+        Carrega os exames através do handler
+        """
+        examDict = dcmHandler.openDicomFiles()
+        for examID,dicomList in examDict.items():
+                self.loader(examID,dicomList)
                 # t = Thread(target=self.loader,args=(img,))
                 # loaderList.append(t)
                 # t.start()
   
     def onEnvChange(self,event):
-        self.envActive = self.envDict[self.notebook.index('current')]
+        print(self.notebook.index('current'))
+        self.envActive = self.envDict[self.notebook.index(self.notebook.select())]
         self.clearCursor()
 
     def cbRoi(self,shape):
@@ -83,18 +117,15 @@ class MainForm():
 
     def cbDraw(self):
         cnv =self.envActive.resultCanvas
-        cnv.bind("<ButtonPress-1>", lambda event: edit.callbackDraw(event=event))
-        cnv.bind("<B1-Motion>", lambda event: edit.onMoveDraw(event=event))
-        cnv.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(event=event))
+        # cnv.bind("<ButtonPress-1>", lambda event: edit.callbackDraw(event=event))
+        cnv.bind("<B1-Motion>", lambda event: edit.onMoveDraw(event=event,env=self.envActive,thickness=self.drawThickness.get()))
+        # cnv.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(event=event))
 
-    def cbZoom(self,zoom):
+    def cbZoom(self,zoomIn):
         cnv =self.envActive.resultCanvas
-        if zoom: # Zoom in
-            cnv.bind("<ButtonRelease-1>", lambda event: edit.zoomIn(env=self.envActive,event=event))
-        else:
-            cnv.bind("<ButtonRelease-1>", lambda event: edit.zoomOut(env=self.envActive,event=event))
-
-    def loadImageNotebook(self,env):
+        cnv.bind("<ButtonRelease-1>", lambda event: edit.zoom(env=self.envActive,zoomIn=zoomIn,event=event))
+        
+    def loadImageNotebook(self):
         """
         Create a image in the notebook for the environment. The image is loaded in a tab in
         the notebook
@@ -102,27 +133,25 @@ class MainForm():
         Output: Frame inside the tab where the image is set (frm)
         """
         try:
-            # Adicionando a aba
-            frm = tk.Frame(self.notebook,bg="red",name=env.examID)
-            self.notebook.add(frm,text=env.examID)
-            frm.rowconfigure(0,weight=1)
-            frm.columnconfigure(0,weight=2,uniform='notebook')
-            frm.columnconfigure(1,weight=1,uniform='notebook')
-            # Adicionando a janela do exame dentro da aba
-            env.examFrame = tk.Frame(frm,bg="green",name=txt.EXAMIMAGE)
-            env.examFrame.rowconfigure(0,weight=1)
-            env.examFrame.columnconfigure(0,weight=1)
-            env.examFrame.grid(row=0,column=0,sticky=tk.NSEW)
-            # Adicionando o canvas da imagem do exame, dentro
-            # da janela
-            env.resultCanvas = tk.Canvas(master=env.examFrame)
-            #env.resultCanvas.pack(expand=1, fill=tk.BOTH)
-            env.resultCanvas.grid(row=0,column=0)
-            env.updateImage()
-            self.envDict[len(self.notebook.tabs())-1] = self.envActive
+            # Cria o frame e o canvas do exame usando o frame
+            # definido como tab dentro do notebook
+            self.envActive.createExamViewer(self.createTab(self.envActive.examID))
+            self.envActive.updateImage()
+            # self.envDict[len(self.notebook.tabs())-1] = self.envActive
+            # self.notebook.select(len(self.notebook.tabs())-1)
+            self.envDict[len(self.notebook.tabs())] = self.envActive
+            self.root.update()
             self.notebook.select(len(self.notebook.tabs())-1)
         except Exception as ex:
             printLog(LOGTYPE.ERROR_LOAD_IMG_NOTEBOOK,ex)
+
+    def createTab(self,exam):
+        frm = ttk.Frame(self.notebook,name=exam)
+        self.notebook.add(frm,text=exam)
+        frm.rowconfigure(0,weight=1)
+        frm.columnconfigure(0,weight=2,uniform='notebook')
+        frm.columnconfigure(1,weight=1,uniform='notebook')
+        return frm
 
     def clearCursor(self):
         frmName = self.notebook.select()

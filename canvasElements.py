@@ -21,3 +21,14 @@ class ROI():
     @property
     def end(self):
         return self.x2,self.y2
+
+
+class DrawnLines:
+    def __init__(self,x,y,thickness):
+        self.x = x
+        self.y = y
+        self.thickness = thickness
+    
+    @property
+    def coords(self):
+        return self.x,self.y

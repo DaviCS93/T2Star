@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1.mpl_axes import Axes
 from matplotlib.colors import ListedColormap
 from scipy.signal import medfilt2d
 from tkinter import PhotoImage
-from PIL import Image
+from PIL import Image,ImageGrab 
 from shape import Shape
 
 class imgObject():
@@ -20,7 +20,7 @@ class imgObject():
     docstring
     """
      
-    def __init__(self,listDicom):
+    def __init__(self,dicomList):
         self.imgMatrix = None
         self.maxColor = 180
         self.minColor = 0
@@ -28,17 +28,20 @@ class imgObject():
         self.listEchoTime = []
         self.color = self.defineJet()
         self.figure = plt.figure(figsize=(6, 6),frameon=False)
-        self.listDicom = listDicom
+        self.dicomList = dicomList
         self.colorName = ""
         self.grayName = ""
         self.imgEcho = None
         self.imgStar = None
-        self.resultImage = self.imgEcho
-        self.size = listDicom[0].pixel_array.shape
+        self.resultImage = None
+        self.size = dicomList[0].pixel_array.shape
         # Zoom ativo
         self.activeZoom = 1
-        for ds in listDicom:
+        for ds in dicomList:
             self.listEchoTime.append(ds.EchoTime/1000) 
+        # Cria as imagens no que é carregado os arquivos
+        self.createFigure()
+        self.plotFigure(False)
         
     def defineJet(self):
         """
@@ -64,7 +67,7 @@ class imgObject():
 
         # For each dicom, we need to take the image mean, so
         # we can remove noise (salt and pepper noise?)
-        for ds in self.listDicom:
+        for ds in self.dicomList:
             image_mean.append(medfilt2d(
                 np.array(ds.pixel_array,dtype=np.float),
                 kernel_size=3))
@@ -79,7 +82,7 @@ class imgObject():
         image_mean[0][image_mean[0]<30] = 0 #
 
         # We create a vector to be easier to process
-        for index in range(len(self.listDicom)): 
+        for index in range(len(self.dicomList)): 
             analysis.append(np.reshape(image_mean[index],(
                 len(image_mean[0])*len(image_mean[0][0]),1))) 
 
@@ -101,7 +104,7 @@ class imgObject():
         for index,indexValue in enumerate(indexes):
             validArr = np.empty((0,len(analysis[0][0])))  
 
-            for i in range(len(self.listDicom)):
+            for i in range(len(self.dicomList)):
                 validArr = np.append(validArr,analysis[i][indexValue])
 
             # Get the log for each value, sum and matrix multiply by the echo time 
@@ -110,7 +113,7 @@ class imgObject():
             validArrLogEchoTime = np.matmul(-np.transpose(echoTimeArr),validArrLog)
 
             # TODO understand this, i have no idea
-            A = np.array([[len(self.listDicom), echoTimeSum],[echoTimeSum, echoTimeMul]])  
+            A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
             B = np.array([[validArrSum],[validArrLogEchoTime]])  
             invA =np.linalg.inv(A) 
             P = np.matmul(invA,B)
@@ -128,14 +131,25 @@ class imgObject():
         print(f"Executed in {toc - tic:0.4f} seconds")
 
     def plotFigure(self,plot):
+        self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
+        self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
         # Deletar imagens da pasta antes
-        self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-        self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.listDicom[0].StudyID)
-        # self.exportFigure(self.imgMatrix, self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
-        # self.exportFigure(self.listDicom[0],self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
+        if os.path.isfile(self.colorName):
+            map(os.remove,(self.colorName,self.grayName))
+        self.exportFigure(self.imgMatrix, self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
+        self.exportFigure(self.dicomList[0],self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
         self.imgEcho = Image.open(self.grayName)
-        self.imgStar = Image.open(self.colorName)  
-        self.resultImage = self.imgEcho     
+        self.imgStar = Image.open(self.colorName)
+        self.resultImage = self.removeTransparency(self.imgEcho)
+
+    def removeTransparency(self,im):
+        if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
+            alpha = im.convert('RGBA').split()[-1]
+            bg = Image.new("RGBA", im.size, (255, 255, 255) + (255,))
+            bg.paste(im, mask=alpha)
+            return bg
+        else:
+            return im
     
     def setMaxColor(self,value):
         """
@@ -159,7 +173,7 @@ class imgObject():
         :param plt_show: show plot or not
         """
         fig = plt.figure(frameon=False)
-        fig.set_size_inches(self.imgMatrix.shape[1]/dpi, self.imgMatrix.shape[0]/dpi)
+        fig.set_size_inches(map(lambda x: x/dpi,self.imgMatrix.shape))
         ax = plt.Axes(fig, [0., 0., 1., 1.])
         ax.set_facecolor('navy')
         ax.set_axis_off()
@@ -171,7 +185,7 @@ class imgObject():
         else:
             plt.close()   
 
-    def replace(self,roiList):
+    def replaceROI(self,roiList):
         cvEcho = cv2.imread(self.grayName) # pylint: disable=maybe-no-member
         cvStar = cv2.imread(self.colorName) # pylint: disable=maybe-no-member
         #alpha = cvEcho[:,:,3]
@@ -196,6 +210,6 @@ class imgObject():
             cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
         #cvEcho = np.dstack([cvEcho, alpha])
         self.resultImage = Image.fromarray(cvEcho)
-            
 
-            
+    def replaceDraw(self,cnv):
+        self.resultImage = ImageGrab.grab().crop(cnv.bbox())

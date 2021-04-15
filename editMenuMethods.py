@@ -1,11 +1,8 @@
-import tkinter as tk
-import os 
-import numpy as np
-import cv2
 from math import fabs
-from PIL import Image, ImageTk   
-from roi import ROI
+
+from canvasElements import ROI, DrawnLines
 from shape import Shape
+
 
 def callbackRoi(env,event,shape):
     newRoi = ROI(shape)
@@ -45,7 +42,7 @@ def releaseRoi(env,event):
     event.widget.delete(env.activeROI)
     # Desconsidera o zoom para aplicar a ROI
     fixROI(env)
-    env.imgObj.replace(env.roiList)
+    env.imgObj.replaceROI(env.roiList)
     # Deleta imagem atual do exame
     event.widget.delete("all")
     event.widget.unbind("<ButtonPress-1>")
@@ -53,21 +50,20 @@ def releaseRoi(env,event):
     event.widget.unbind("<ButtonRelease-1>")
     env.updateImage()
 
-def callbackDraw(event):
-    event.widget.old_coords = event.x, event.y
+def onMoveDraw(event,env,thickness):
+    doDraw([(event.x,event.y)],event.widget,thickness)
+    d = DrawnLines(event.x,event.y,thickness)
+    env.drawList.append(d)
+
+def releaseDraw(event,env):
+    pass
+
+def doDraw(listCoords,canvas,thickness):
+    for coord in listCoords:
+        x1, y1 = map(lambda x: x + 10*thickness,coord)
+        x2, y2 = map(lambda x: x - 10*thickness,coord)
+        canvas.create_oval(x1,y1,x2,y2, outline='black',fill='black',width=1)
     
-def onMoveDraw(event):
-    x, y = event.x, event.y
-    x1, y1 = event.widget.old_coords
-    event.widget.create_line(x, y, x1, y1)
-    event.widget.old_coords = x, y
-
-def releaseDraw(event):
-    x, y = event.x, event.y
-    x1, y1 = event.widget.old_coords
-    event.widget.create_line(x, y, x1, y1)
-    event.widget.old_coords = None      
-
 def fixROI(env):
     roi =  env.roiList[-1]
     roi.x1,roi.y1,roi.x2,roi.y2 = map(
@@ -75,8 +71,8 @@ def fixROI(env):
         (roi.x1,roi.y1,roi.x2,roi.y2))
     pass
 
-def zoomIn(event,env):
-    env.applyZoom(True)
-
-def zoomOut(event,env):
-    env.applyZoom(False)
+def zoom(event,env,zoomIn):
+    env.applyZoom(zoomIn)
+    env.updateImage()
+    for d in env.drawList:
+        doDraw([d.coords],env.resultCanvas,d.thickness)
