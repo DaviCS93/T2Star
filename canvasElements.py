@@ -1,4 +1,10 @@
-class ROI():
+from abc import ABC
+class canvasElement(ABC):
+    def __str__(self):
+        return self.__name__
+
+
+class ROI(canvasElement):
     def __init__(self,shape):
         self.shape = shape
         self.x1 = 0
@@ -22,8 +28,7 @@ class ROI():
     def end(self):
         return self.x2,self.y2
 
-
-class DrawnLines:
+class DrawnLines(canvasElement):
     def __init__(self,x,y,thickness):
         self.x = x
         self.y = y

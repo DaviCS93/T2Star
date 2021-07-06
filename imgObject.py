@@ -1,7 +1,8 @@
+from canvasElements import canvasElement
 import time
 import math
 import os
-
+from decorators import timer
 import matplotlib.pyplot as plt
 import matplotlib as matplot
 import pydicom as pd
@@ -14,6 +15,7 @@ from scipy.signal import medfilt2d
 from tkinter import PhotoImage
 from PIL import Image,ImageGrab 
 from shape import Shape
+from canvasElements import ROI,DrawnLines
 
 class imgObject():
     """
@@ -42,7 +44,8 @@ class imgObject():
         # Cria as imagens no que é carregado os arquivos
         self.createFigure()
         self.plotFigure(False)
-        
+
+    @timer    
     def defineJet(self):
         """
         docstring
@@ -54,7 +57,8 @@ class imgObject():
         jet_combined_arr = np.concatenate((jet_arr,jet_reverse_arr))
         jet_combined = ListedColormap(jet_combined_arr)
         return jet_combined
-
+    
+    @timer 
     def createFigure(self):
         """
         docstring
@@ -128,8 +132,9 @@ class imgObject():
         self.imgMatrix = np.reshape(self.imgMatrix,(len(image_mean[0]),len(image_mean[0][0])))
         # self.size = self.imgMatrix.shape
         toc = time.perf_counter()
-        print(f"Executed in {toc - tic:0.4f} seconds")
+        #print(f"Executed in {toc - tic:0.4f} seconds")
 
+    @timer 
     def plotFigure(self,plot):
         self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
         self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
@@ -141,7 +146,9 @@ class imgObject():
         self.imgEcho = Image.open(self.grayName)
         self.imgStar = Image.open(self.colorName)
         self.resultImage = self.removeTransparency(self.imgEcho)
+        pass
 
+    @timer 
     def removeTransparency(self,im):
         if im.mode in ('RGBA', 'LA') or (im.mode == 'P' and 'transparency' in im.info):
             alpha = im.convert('RGBA').split()[-1]
@@ -151,18 +158,21 @@ class imgObject():
         else:
             return im
     
+    @timer 
     def setMaxColor(self,value):
         """
         docstring
         """
         self.maxColor = value
 
+    @timer 
     def setMinColor(self,value):
         """
         docstring
         """
         self.minColor = value
 
+    @timer 
     def exportFigure(self, matrix, f_name, cmap, dpi=200, resize_fact=1, plt_show=False, vmin=None, vmax=None):
         """
         Export array as figure in original resolution
@@ -185,11 +195,14 @@ class imgObject():
         else:
             plt.close()   
 
-    def replaceROI(self,roiList):
+    @timer 
+    def replaceRoi(self,roiList):
         cvEcho = cv2.imread(self.grayName) # pylint: disable=maybe-no-member
         cvStar = cv2.imread(self.colorName) # pylint: disable=maybe-no-member
         #alpha = cvEcho[:,:,3]
         for roi in roiList:
+            if not type(roi) == ROI:
+                continue
             mask = np.zeros(self.size, np.uint8)
             if roi.shape == Shape.RECTANGLE:
                 mask = cv2.rectangle(mask,roi.start,roi.end,(255, 255, 255), -1) # pylint: disable=maybe-no-member
@@ -209,7 +222,11 @@ class imgObject():
             imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
             cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
         #cvEcho = np.dstack([cvEcho, alpha])
-        self.resultImage = Image.fromarray(cvEcho)
+        self.resultImage = Image.fromarray(cvEcho)  
 
-    def replaceDraw(self,cnv):
-        self.resultImage = ImageGrab.grab().crop(cnv.bbox())
+    @timer 
+    def replaceDraw(self,drawList):
+        for roi in drawList:
+            if not type(roi) == list:
+                continue
+        #self.resultImage = ImageGrab.grab().crop(cnv.bbox())

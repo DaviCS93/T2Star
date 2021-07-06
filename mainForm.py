@@ -105,25 +105,34 @@ class MainForm():
                 # t.start()
   
     def onEnvChange(self,event):
-        print(self.notebook.index('current'))
+        #print(self.notebook.index('current'))
         self.envActive = self.envDict[self.notebook.index(self.notebook.select())]
         self.clearCursor()
 
     def cbRoi(self,shape):
-        cnv = self.envActive.resultCanvas
-        cnv.bind("<ButtonPress-1>", lambda event: edit.callbackRoi(env=self.envActive,event=event,shape=shape))
-        cnv.bind("<B1-Motion>", lambda event: edit.onMoveRoi(env=self.envActive,event=event))
-        cnv.bind("<ButtonRelease-1>", lambda event: edit.releaseRoi(env=self.envActive,event=event))
+        self.clearCursor()
+        #cnv = self.envActive.resultCanvas
+        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.callbackRoi(
+            env=self.envActive,event=event,shape=shape))
+        self.envActive.resultCanvas.bind("<B1-Motion>", lambda event: edit.onMoveRoi(
+            env=self.envActive,event=event))
+        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseRoi(
+            env=self.envActive,event=event))
 
     def cbDraw(self):
-        cnv =self.envActive.resultCanvas
-        # cnv.bind("<ButtonPress-1>", lambda event: edit.callbackDraw(event=event))
-        cnv.bind("<B1-Motion>", lambda event: edit.onMoveDraw(event=event,env=self.envActive,thickness=self.drawThickness.get()))
+        self.clearCursor()
+        #cnv =self.envActive.resultCanvas
+        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startDraw(
+            event=event,env=self.envActive,thickness=self.drawThickness.get()))
+        self.envActive.resultCanvas.bind("<B1-Motion>", lambda event:edit.onMoveDraw(
+            event=event,env=self.envActive,thickness=self.drawThickness.get()))
         # cnv.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(event=event))
 
     def cbZoom(self,zoomIn):
-        cnv =self.envActive.resultCanvas
-        cnv.bind("<ButtonRelease-1>", lambda event: edit.zoom(env=self.envActive,zoomIn=zoomIn,event=event))
+        self.clearCursor()
+        #cnv =self.envActive.resultCanvas
+        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.zoom(
+            env=self.envActive,zoomIn=zoomIn,event=event))
         
     def loadImageNotebook(self):
         """
@@ -136,12 +145,12 @@ class MainForm():
             # Cria o frame e o canvas do exame usando o frame
             # definido como tab dentro do notebook
             self.envActive.createExamViewer(self.createTab(self.envActive.examID))
-            self.envActive.updateImage()
             # self.envDict[len(self.notebook.tabs())-1] = self.envActive
             # self.notebook.select(len(self.notebook.tabs())-1)
-            self.envDict[len(self.notebook.tabs())] = self.envActive
-            self.root.update()
+            self.envDict[len(self.notebook.children)-1] = self.envActive
+            self.envActive.updateImage()
             self.notebook.select(len(self.notebook.tabs())-1)
+            self.root.update()
         except Exception as ex:
             printLog(LOGTYPE.ERROR_LOAD_IMG_NOTEBOOK,ex)
 

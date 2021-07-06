@@ -14,9 +14,10 @@ class Environment:
         # Obj de imagem relacionado a esse ambiente (aba)
         self.imgObj = imgObj(dicomList)
         # Lista de Rois aplicadas na imagem
-        self.roiList = [] #ROI()
+        #self.roiList = [] #ROI()
         # Lista de Draws aplicadas na imagem
-        self.drawList = [] 
+        #self.drawList = [] 
+        self.canvasElemList = []
         # Canvas da imagem (para poder desenhar as roi's)
         self.resultCanvas = None
         # Frame de apresentação da imagem do exame
@@ -39,6 +40,12 @@ class Environment:
         self.printImage = ImageTk.PhotoImage(image=zoomedImage,size=zoomedImage.size)
         self.resultCanvas.create_image(0,0,anchor=tk.NW,image=self.printImage,tags='printImage')
         self.resultCanvas.configure(width=zoomedImage.width,height=zoomedImage.height)
+        drawList = [x for x in self.canvasElemList if type(x) == list]
+        for draw in drawList:
+            coordList = [x.coords for x in draw]
+            for index in range(5,len(coordList)):
+                #print(index)
+                self.resultCanvas.create_line(list(sum(coordList[max(0,index-5):index], ())),width=10*draw[-1].thickness,smooth=True)
         self.resultCanvas.update()
     
     def applyZoom(self,zoomIn):
