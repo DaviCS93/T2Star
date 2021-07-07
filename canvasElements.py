@@ -29,11 +29,26 @@ class ROI(canvasElement):
         return self.x2,self.y2
 
 class DrawnLines(canvasElement):
-    def __init__(self,x,y,thickness):
-        self.x = x
-        self.y = y
+    def __init__(self,x,y,thickness,color):
+        self.dots = [(x,y)]
+        self.xLast = x
+        self.yLast = y
         self.thickness = thickness
+        self.color = color
     
     @property
     def coords(self):
-        return self.x,self.y
+        return self.xLast,self.yLast
+    
+    def addCoord(self,x,y):
+       self.dots.append((x,y))
+         
+
+class Tag(canvasElement):
+    def __init__(self,x,y,text):
+        self.x = x
+        self.y = y
+        self.text = text
+        
+    
+    

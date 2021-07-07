@@ -1,15 +1,17 @@
+from tkinter.constants import X
+from canvasElements import DrawnLines,ROI,Tag
 import tkinter as tk
 from tkinter import ttk
 from PIL import ImageTk
 from enumInterface import Texts as txt
 from imgObject import imgObject as imgObj
 from threading import Thread
-
+from decorators import timer
 
 class Environment:
 
     def __init__(self,examID,dicomList):
-        # ID do exame TODO
+        # ID do exame
         self.examID = examID
         # Obj de imagem relacionado a esse ambiente (aba)
         self.imgObj = imgObj(dicomList)
@@ -28,6 +30,7 @@ class Environment:
         # Taxa de zoom
         self.zoomFactor = 1.2
 
+    @timer
     def updateImage(self):
         # Limpa o canvas (deleta a imagem antiga)
         self.resultCanvas.delete("all")
@@ -40,12 +43,8 @@ class Environment:
         self.printImage = ImageTk.PhotoImage(image=zoomedImage,size=zoomedImage.size)
         self.resultCanvas.create_image(0,0,anchor=tk.NW,image=self.printImage,tags='printImage')
         self.resultCanvas.configure(width=zoomedImage.width,height=zoomedImage.height)
-        drawList = [x for x in self.canvasElemList if type(x) == list]
-        for draw in drawList:
-            coordList = [x.coords for x in draw]
-            for index in range(5,len(coordList)):
-                #print(index)
-                self.resultCanvas.create_line(list(sum(coordList[max(0,index-5):index], ())),width=10*draw[-1].thickness,smooth=True)
+        self.reDraw()
+        self.reTag()
         self.resultCanvas.update()
     
     def applyZoom(self,zoomIn):
@@ -89,3 +88,28 @@ class Environment:
     
     def updateColor(self):
         pass
+
+    def reDraw(self):
+        drawList = [x for x in self.canvasElemList if type(x) == DrawnLines]
+        for draw in drawList:
+            for index in range(2,len(draw.dots)):
+                #print(index)
+                #Refaz todos os draws (processo rapido) utilizando 2 pontos por cada vez (até o 2 ponto usa todos os disponiveis)
+                try:
+                    splinePoints = list(sum(draw.dots[max(0,index-3):index], ()))
+                    resizedPoints = list(map(lambda x:x*self.imgObj.activeZoom,splinePoints))
+                    self.resultCanvas.create_line(resizedPoints,width=10*draw.thickness,fill=draw.color,smooth=True)
+                except:
+                    print("draw came out of the canvas")
+                    pass
+    
+    def reTag(self):
+        tagList = [x for x in self.canvasElemList if type(x) == Tag]
+        for tag in tagList:
+            try:
+                xResized = tag.x*self.imgObj.activeZoom
+                yResized = tag.y*self.imgObj.activeZoom
+                self.resultCanvas.create_text(xResized,yResized,font="Arial 12 bold",text=tag.text)
+            except:
+                print("text came out of the canvas")
+                pass

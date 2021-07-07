@@ -1,11 +1,10 @@
+import tkinter as tk
 from math import fabs
-
 from decorators import timer
-from canvasElements import ROI, DrawnLines
+from canvasElements import ROI, DrawnLines, canvasElement,Tag
 from shape import Shape
 
-
-def callbackRoi(env,event,shape):
+def startRoi(env,event,shape):
     newRoi = ROI(shape)
     newRoi.setStart(event.x,event.y)
     env.canvasElemList.append(newRoi)
@@ -47,7 +46,7 @@ def releaseRoi(env,event):
     roi.x1,roi.y1,roi.x2,roi.y2 = map(
         lambda c: int(c/env.imgObj.activeZoom),
         (roi.x1,roi.y1,roi.x2,roi.y2))
-    env.imgObj.replaceROI(env.canvasElemList)
+    env.imgObj.replaceRoi(env.canvasElemList)
     # Deleta imagem atual do exame
     event.widget.delete("all")
     event.widget.unbind("<ButtonPress-1>")
@@ -55,24 +54,55 @@ def releaseRoi(env,event):
     event.widget.unbind("<ButtonRelease-1>")
     env.updateImage()
     
-
-def startDraw(event,env,thickness):
+def startDraw(event,env,thickness,color):
     x1, y1 = map(lambda x: x + 4.5*thickness,(event.x,event.y))
     x2, y2 = map(lambda x: x - 4.5*thickness,(event.x,event.y))
-    event.widget.create_oval(x1,y1,x2,y2, outline='black',fill='black',width=1)
-    d = DrawnLines(event.x,event.y,thickness)
-    env.canvasElemList.append([d])
+    event.widget.create_oval(x1,y1,x2,y2, outline=color,fill=color,width=1)
+    d = DrawnLines(event.x,event.y,thickness,color)
+    env.canvasElemList.append(d)
 
-def onMoveDraw(event,env,thickness):
-    coords = [x.coords for x in env.canvasElemList[-1][-5:]]
-    event.widget.create_line(event.x,event.y,list(sum(coords, ())),width=10*thickness,smooth=True)
+def onMoveDraw(event,env,thickness,color):
+    coords = [x for x in env.canvasElemList[-1].dots[-2:]]
+    xPrev,yPrev=coords[-1][0],coords[-1][1]
+    xDiff,yDiff = event.x-xPrev,event.y - yPrev
+    #TODO bug em caso de curva acelerada
+    if abs(xDiff)>30 or abs(yDiff)>30:
+        coords.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
+        env.canvasElemList[-1].addCoord(xPrev+(xDiff/2),yPrev+(yDiff/2))
+    flatCoods = list(sum(coords, ()))
+    event.widget.create_line(event.x,event.y,flatCoods,fill=color,width=10*thickness,smooth=True)
     #doDraw((event.x,event.y),event.widget,thickness,env)
-    d = DrawnLines(event.x,event.y,thickness)
-    env.canvasElemList[-1].append(d)
+    env.canvasElemList[-1].addCoord(event.x,event.y)
 
 def releaseDraw(event,env):
+    env.updateImage()
     pass
+    # event.widget.unbind("<ButtonPress-1>")
+    # event.widget.unbind("<B1-Motion>")
+    # event.widget.unbind("<ButtonRelease-1>")
 
 def zoom(event,env,zoomIn):
     env.applyZoom(zoomIn)
     env.updateImage()
+
+def startTag(event,env):
+    xRel, yRel = event.widget.winfo_rootx()+event.x,event.widget.winfo_rooty()+event.y
+    wrapper = tk.Toplevel(event.widget)
+    wrapper.geometry("%dx%d+%d+%d" % (100, 100, xRel, yRel))
+    wrapper.transient(event.widget)
+    wrapper.columnconfigure(0,weight=1,uniform="tagset")
+    wrapper.columnconfigure(1,weight=1,uniform="tagset")
+    wrapper.rowconfigure(0,weight=1)
+    textBox = tk.Text(wrapper)
+    textBox.grid(row=0,column=0,columnspan=2,sticky='NWE')
+    okBtn = tk.Button(wrapper,text="Ok",command=lambda: releaseTag(wrapper,textBox.get('1.0',tk.END),event.x, event.y,event.widget,env))
+    cancelBtn = tk.Button(wrapper,text="Cancel",command=lambda: wrapper.destroy())
+    okBtn.grid(row=1,column=0,sticky='SW')
+    cancelBtn.grid(row=1,column=1,sticky='SE')
+    wrapper.grab_set()
+    
+def releaseTag(popup,text,x,y,canvas,env):
+    canvas.create_text(x,y,font="Arial 12 bold",text=text)
+    t = Tag(x,y,text)
+    env.canvasElemList.append(t)
+    popup.destroy()

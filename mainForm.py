@@ -1,7 +1,8 @@
 import tkinter as tk
 from sys import exit as closeThread
 from threading import Thread
-from tkinter import ttk
+from tkinter import BaseWidget, ttk
+from typing import ByteString
 from ttkthemes import ThemedTk
 import dicomHandler as dcmHandler
 import editMenuMethods as edit
@@ -58,17 +59,28 @@ class MainForm():
 
     def setEditMenu(self):
         self.drawThickness = tk.DoubleVar(self.root)
-
+        self.color = 'black'
         self.editMenu = ttk.Frame(self.mainFrame)
         self.editMenu.grid(row=1,column=0,sticky=tk.NSEW)
         #self.editMenu.columnconfigure(0,weight=1)
         ttk.Button(self.editMenu,text=btns.RECTANGLE,command=lambda: self.cbRoi(Shape.RECTANGLE)).grid(row=1,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.CIRCLE,command=lambda: self.cbRoi(Shape.CIRCLE)).grid(row=2,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.DRAW,command=lambda: self.cbDraw()).grid(row=3,column=0,sticky=tk.NW)
-        ttk.Button(self.editMenu,text=btns.ZOOM_IN,command=lambda: self.cbZoom(True)).grid(row=4,column=0,sticky=tk.NW)
-        ttk.Button(self.editMenu,text=btns.ZOOM_OUT,command=lambda: self.cbZoom(False)).grid(row=5,column=0,sticky=tk.NW)
-
+        ttk.Button(self.editMenu,text=btns.TAG,command=lambda: self.cbTag()).grid(row=4,column=0,sticky=tk.NW)
+        ttk.Button(self.editMenu,text=btns.ZOOM_IN,command=lambda: self.cbZoom(True)).grid(row=5,column=0,sticky=tk.NW)
+        ttk.Button(self.editMenu,text=btns.ZOOM_OUT,command=lambda: self.cbZoom(False)).grid(row=6,column=0,sticky=tk.NW)
         ttk.Scale(self.editMenu,orient=tk.HORIZONTAL,variable=self.drawThickness).grid(row=3,column=1,sticky=tk.NW)
+        self.drawColorsMenu = ttk.Frame(self.editMenu)
+        self.drawColorsMenu.grid(row=7,column=1,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.BLUE,command=lambda: self.setColor('blue')).grid(row=6,column=0,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.RED,command=lambda: self.setColor('red')).grid(row=6,column=1,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.YELLOW,command=lambda: self.setColor('yellow')).grid(row=6,column=2,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.GREEN,command=lambda: self.setColor('green')).grid(row=6,column=3,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.BLACK,command=lambda: self.setColor('black')).grid(row=6,column=4,sticky=tk.NW)
+        self.drawColorsMenu.grid_remove()
+
+    def setColor(self,c):
+        self.color = c
 
     def setNotebook(self):
         self.notebook = ttk.Notebook(self.mainFrame,name=txt.NOTEBOOK)
@@ -112,7 +124,7 @@ class MainForm():
     def cbRoi(self,shape):
         self.clearCursor()
         #cnv = self.envActive.resultCanvas
-        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.callbackRoi(
+        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startRoi(
             env=self.envActive,event=event,shape=shape))
         self.envActive.resultCanvas.bind("<B1-Motion>", lambda event: edit.onMoveRoi(
             env=self.envActive,event=event))
@@ -121,18 +133,26 @@ class MainForm():
 
     def cbDraw(self):
         self.clearCursor()
+        self.drawColorsMenu.grid()
         #cnv =self.envActive.resultCanvas
         self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startDraw(
-            event=event,env=self.envActive,thickness=self.drawThickness.get()))
+            event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
         self.envActive.resultCanvas.bind("<B1-Motion>", lambda event:edit.onMoveDraw(
-            event=event,env=self.envActive,thickness=self.drawThickness.get()))
-        # cnv.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(event=event))
+            event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
+        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(
+            env=self.envActive,event=event))
 
     def cbZoom(self,zoomIn):
         self.clearCursor()
         #cnv =self.envActive.resultCanvas
         self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.zoom(
             env=self.envActive,zoomIn=zoomIn,event=event))
+
+    def cbTag(self):
+        self.clearCursor()
+        #cnv =self.envActive.resultCanvas
+        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startTag(
+            env=self.envActive,event=event))
         
     def loadImageNotebook(self):
         """
@@ -168,6 +188,7 @@ class MainForm():
         for cnvName in frm.children[txt.EXAMIMAGE].children:
             # Pega o canvas atual
             cnv = self.root.nametowidget(".".join((frmName,txt.EXAMIMAGE,cnvName)))
+            self.drawColorsMenu.grid_remove()
             cnv.unbind("<ButtonPress-1>")
             cnv.unbind("<B1-Motion>")
             cnv.unbind("<ButtonRelease-1>")

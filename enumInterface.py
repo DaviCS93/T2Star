@@ -1,9 +1,18 @@
+from sys import builtin_module_names
+
+
 class Buttons():
     CIRCLE = "Circle"
     RECTANGLE = "Rectangle"
     DRAW = "Draw"
     ZOOM_IN = "Zoom in"
     ZOOM_OUT = "Zoom out"
+    TAG = "Tag"
+    BLUE = 'blue'
+    RED = 'red'
+    YELLOW = 'yellow'
+    GREEN = 'green'
+    BLACK = 'black'
 
 class Labels():
      ZOOM = "Zoom"

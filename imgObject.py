@@ -64,10 +64,13 @@ class imgObject():
         docstring
         """
         image_mean = []   
-        analysis = []
-
-        # We start seting the timer to verify performance
-        tic = time.perf_counter()
+        #analysis = []
+        analysis = np.zeros((self.size[0]*self.size[1],len(self.dicomList)))
+        
+        # Process the TE to get the values needed for the process later
+        echoTimeSum = -sum(self.listEchoTime) 
+        echoTimeArr = np.array(self.listEchoTime) 
+        echoTimeMul = np.matmul(np.transpose(echoTimeArr),echoTimeArr) 
 
         # For each dicom, we need to take the image mean, so
         # we can remove noise (salt and pepper noise?)
@@ -87,29 +90,35 @@ class imgObject():
 
         # We create a vector to be easier to process
         for index in range(len(self.dicomList)): 
-            analysis.append(np.reshape(image_mean[index],(
-                len(image_mean[0])*len(image_mean[0][0]),1))) 
-
+            # analysis =np.append(analysis,np.reshape(image_mean[index],(
+            #     len(image_mean[0])*len(image_mean[0][0]),1))) 
+            analysis[:,[index]] = np.reshape(image_mean[index],(
+                len(image_mean[0])*len(image_mean[0][0]),1))
+        #TODO
         # Set the first item as fixed, and them compare all 
         # remain itens to get true/false 
         tempArr = analysis[0] 
         for aux in analysis[1:]:
             tempArr = np.logical_and(tempArr,aux)
 
-        # Process the TE to get the values needed for the process later
-        echoTimeSum = -sum(self.listEchoTime) 
-        echoTimeArr = np.array(self.listEchoTime) 
-        echoTimeMul = np.matmul(np.transpose(echoTimeArr),echoTimeArr) 
-
         # Get all indexes which result are 1 (over 0 in all pixels)
         indexes = [ind for ind, x in enumerate(tempArr) if x>0] 
 
         # Main process, now all the 
         for index,indexValue in enumerate(indexes):
+            
             validArr = np.empty((0,len(analysis[0][0])))  
+
+            tic = time.perf_counter()
+
+            
+            # validArr = analysis[i][analysis[i]!=0]
 
             for i in range(len(self.dicomList)):
                 validArr = np.append(validArr,analysis[i][indexValue])
+
+            toc = time.perf_counter()
+            print(f"{index} 1 Executed in {toc - tic:0.4f} seconds")
 
             # Get the log for each value, sum and matrix multiply by the echo time 
             validArrLog = np.array(list(map(np.log,validArr)))
@@ -223,10 +232,3 @@ class imgObject():
             cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
         #cvEcho = np.dstack([cvEcho, alpha])
         self.resultImage = Image.fromarray(cvEcho)  
-
-    @timer 
-    def replaceDraw(self,drawList):
-        for roi in drawList:
-            if not type(roi) == list:
-                continue
-        #self.resultImage = ImageGrab.grab().crop(cnv.bbox())
