@@ -94,57 +94,33 @@ class imgObject():
             #     len(image_mean[0])*len(image_mean[0][0]),1))) 
             analysis[:,[index]] = np.reshape(image_mean[index],(
                 len(image_mean[0])*len(image_mean[0][0]),1))
-        #TODO
-        # Set the first item as fixed, and them compare all 
-        # remain itens to get true/false 
-        tempArr = analysis[0] 
-        for aux in analysis[1:]:
-            tempArr = np.logical_and(tempArr,aux)
 
-        # Get all indexes which result are 1 (over 0 in all pixels)
-        indexes = [ind for ind, x in enumerate(tempArr) if x>0] 
+        matLog = np.log(analysis)
+        arrSum = matLog.sum(axis=1)
+        arrLogEchoTime = np.matmul(matLog,-echoTimeArr)
 
-        # Main process, now all the 
-        for index,indexValue in enumerate(indexes):
-            
-            validArr = np.empty((0,len(analysis[0][0])))  
+        arrB = np.stack((arrSum,arrLogEchoTime))
+        A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
+        invA = np.linalg.inv(A)
 
-            tic = time.perf_counter()
+        tic = time.perf_counter()
 
-            
-            # validArr = analysis[i][analysis[i]!=0]
+        #P = np.apply_along_axis(lambda x:np.matmul(invA,x),0,arrB)
+        P = np.matmul(invA,arrB)
 
-            for i in range(len(self.dicomList)):
-                validArr = np.append(validArr,analysis[i][indexValue])
+        toc = time.perf_counter()
+        print(f"Executed in {toc - tic:0.4f} seconds")
+        
+        P[np.isnan(P)] = 0
 
-            toc = time.perf_counter()
-            print(f"{index} 1 Executed in {toc - tic:0.4f} seconds")
-
-            # Get the log for each value, sum and matrix multiply by the echo time 
-            validArrLog = np.array(list(map(np.log,validArr)))
-            validArrSum = sum(validArrLog)
-            validArrLogEchoTime = np.matmul(-np.transpose(echoTimeArr),validArrLog)
-
-            # TODO understand this, i have no idea
-            A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
-            B = np.array([[validArrSum],[validArrLogEchoTime]])  
-            invA =np.linalg.inv(A) 
-            P = np.matmul(invA,B)
-            
-            # Anyway, get the result for the matrix in the result array
-            self.imgMatrix[indexValue] = (P[1][0])
-
-        for i,t in enumerate(self.imgMatrix):
-            self.imgMatrix[i] = math.inf if t[0] == 0 else 1000/t[0]
-
+        self.imgMatrix = np.transpose(P)[:,[1]]
+        self.imgMatrix = 1000/self.imgMatrix
         # Reshape T2 for the size needed
         self.imgMatrix = np.reshape(self.imgMatrix,(len(image_mean[0]),len(image_mean[0][0])))
         # self.size = self.imgMatrix.shape
-        toc = time.perf_counter()
-        #print(f"Executed in {toc - tic:0.4f} seconds")
-
+      
     @timer 
-    def plotFigure(self,plot):
+    def plotFigure(self):
         self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
         self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
         # Deletar imagens da pasta antes
