@@ -1,19 +1,13 @@
-from canvasElements import canvasElement
-import time
-import math
+import warnings 
 import os
 from decorators import timer
 import matplotlib.pyplot as plt
 import matplotlib as matplot
-import pydicom as pd
 import numpy as np
 import cv2
-from mpl_toolkits.axes_grid1 import Divider, Size
-from mpl_toolkits.axes_grid1.mpl_axes import Axes
 from matplotlib.colors import ListedColormap
 from scipy.signal import medfilt2d
-from tkinter import PhotoImage
-from PIL import Image,ImageGrab 
+from PIL import Image
 from shape import Shape
 from canvasElements import ROI,DrawnLines
 
@@ -24,8 +18,9 @@ class imgObject():
      
     def __init__(self,dicomList):
         self.imgMatrix = None
-        self.maxColor = 180
-        self.minColor = 0
+        self.maxColor = 200
+        self.minColor = 40
+        self.redScale = 50
         self.listROI = []
         self.listEchoTime = []
         self.color = self.defineJet()
@@ -43,21 +38,35 @@ class imgObject():
             self.listEchoTime.append(ds.EchoTime/1000) 
         # Cria as imagens no que é carregado os arquivos
         self.createFigure()
-        self.plotFigure(False)
+        self.plotFigure()
 
     @timer    
     def defineJet(self):
         """
         docstring
         """
+        redScale=self.redScale/100
         jet = matplot.cm.get_cmap(name='jet')
-        jet_arr = jet(np.linspace(0, 1, 128))
+        jet_arr = jet(np.linspace(0, 1,128))
         jet_reverse = matplot.cm.get_cmap(name='jet_r')
         jet_reverse_arr = jet_reverse(np.linspace(0, 1, 128))
+        if redScale >0.5:
+            jet_reverse_arr=jet_reverse_arr[1:-1-(int((redScale-0.5)*256)),:] #deletar slice (redScale-0.5)*256
+        elif redScale <0.5:
+            0 > 128
+            0.5 > 0
+            
+            jet_arr=jet_arr[(int((redScale*(-256)+128))):len(jet_arr),:] #deletar slice redScale*256
         jet_combined_arr = np.concatenate((jet_arr,jet_reverse_arr))
         jet_combined = ListedColormap(jet_combined_arr)
+        gradient = np.linspace(0, 1, 180)
+        gradient = np.vstack((gradient, gradient))
+        fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
+        ax.imshow(gradient, aspect='auto', cmap=jet_combined)
+        ax.set_axis_off()
+        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scale.png",bbox_inches = 'tight', dpi=200)
         return jet_combined
-    
+        
     @timer 
     def createFigure(self):
         """
@@ -67,10 +76,11 @@ class imgObject():
         #analysis = []
         analysis = np.zeros((self.size[0]*self.size[1],len(self.dicomList)))
         
+        warnings.filterwarnings('ignore')
         # Process the TE to get the values needed for the process later
         echoTimeSum = -sum(self.listEchoTime) 
-        echoTimeArr = np.array(self.listEchoTime) 
-        echoTimeMul = np.matmul(np.transpose(echoTimeArr),echoTimeArr) 
+        self.echoTimeArr = np.array(self.listEchoTime) 
+        echoTimeMul = np.matmul(np.transpose(self.echoTimeArr),self.echoTimeArr) 
 
         # For each dicom, we need to take the image mean, so
         # we can remove noise (salt and pepper noise?)
@@ -97,19 +107,13 @@ class imgObject():
 
         matLog = np.log(analysis)
         arrSum = matLog.sum(axis=1)
-        arrLogEchoTime = np.matmul(matLog,-echoTimeArr)
+        arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
 
         arrB = np.stack((arrSum,arrLogEchoTime))
         A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
         invA = np.linalg.inv(A)
-
-        tic = time.perf_counter()
-
         #P = np.apply_along_axis(lambda x:np.matmul(invA,x),0,arrB)
         P = np.matmul(invA,arrB)
-
-        toc = time.perf_counter()
-        print(f"Executed in {toc - tic:0.4f} seconds")
         
         P[np.isnan(P)] = 0
 
@@ -117,18 +121,20 @@ class imgObject():
         self.imgMatrix = 1000/self.imgMatrix
         # Reshape T2 for the size needed
         self.imgMatrix = np.reshape(self.imgMatrix,(len(image_mean[0]),len(image_mean[0][0])))
+        self.MSE=""
         # self.size = self.imgMatrix.shape
-      
+    
     @timer 
-    def plotFigure(self):
-        self.colorName = '{0}\\imgs\\color{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
-        self.grayName = '{0}\\imgs\\gray{1}.png'.format(os.path.dirname(__file__),self.dicomList[0].StudyID)
+    def plotFigure(self,gray=True):
         # Deletar imagens da pasta antes
         if os.path.isfile(self.colorName):
             map(os.remove,(self.colorName,self.grayName))
+        self.colorName = f'{os.path.dirname(__file__)}\\imgs\\color{self.dicomList[0].StudyID}.png'
+        if gray:
+            self.grayName = f'{os.path.dirname(__file__)}\\imgs\\gray{self.dicomList[0].StudyID}.png'
+            self.exportFigure(self.dicomList[0],self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
+            self.imgEcho = Image.open(self.grayName)
         self.exportFigure(self.imgMatrix, self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
-        self.exportFigure(self.dicomList[0],self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
-        self.imgEcho = Image.open(self.grayName)
         self.imgStar = Image.open(self.colorName)
         self.resultImage = self.removeTransparency(self.imgEcho)
         pass
@@ -144,18 +150,15 @@ class imgObject():
             return im
     
     @timer 
-    def setMaxColor(self,value):
+    def setColors(self,max,min,red):
         """
         docstring
         """
-        self.maxColor = value
+        self.maxColor = max
+        self.minColor = min
+        self.redScale = red
+        self.color = self.defineJet()
 
-    @timer 
-    def setMinColor(self,value):
-        """
-        docstring
-        """
-        self.minColor = value
 
     @timer 
     def exportFigure(self, matrix, f_name, cmap, dpi=200, resize_fact=1, plt_show=False, vmin=None, vmax=None):

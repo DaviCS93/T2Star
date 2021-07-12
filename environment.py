@@ -61,33 +61,12 @@ class Environment:
         self.examFrame.grid(row=0,column=0,sticky=tk.NSEW)    
         self.resultCanvas = tk.Canvas(master=self.examFrame)
         self.resultCanvas.grid(row=0,rowspan=4,column=0)  
-        self.createColorScale()
 
-    def createColorScale(self):
-        self.maxColorScale = tk.DoubleVar(self.examFrame)
-        self.minColorScale = tk.DoubleVar(self.examFrame)
-        self.maxUpScaleStr = tk.StringVar(self.examFrame)
-        self.minUpScaleStr = tk.StringVar(self.examFrame)
-        self.maxLoScaleStr = tk.StringVar(self.examFrame)
-        self.minLoScaleStr = tk.StringVar(self.examFrame)
-
-        self.maxUpScaleStr.set(self.imgObj.maxColor)
-        self.minUpScaleStr.set(int(self.imgObj.maxColor/2))
-        self.maxLoScaleStr.set(int(self.imgObj.maxColor/2))
-        self.minLoScaleStr.set(self.imgObj.minColor)
-
-        self.upperColorScale = ttk.Scale(self.examFrame,orient=tk.VERTICAL,variable=self.maxColorScale).grid(row=0,column=1,rowspan=2,sticky='NSW')
-        self.lowerColorScale = ttk.Scale(self.examFrame,orient=tk.VERTICAL,variable=self.minColorScale).grid(row=2,column=1,rowspan=2,sticky='NSW')
-        self.maxUpperScaleLabel = ttk.Label(self.examFrame,textvariable=self.maxUpScaleStr).grid(row=0,column=2,sticky=tk.NW)
-        self.minUpperScaleLabel = ttk.Label(self.examFrame,textvariable=self.minUpScaleStr).grid(row=1,column=2,sticky=tk.SW)
-        self.maxLowerScaleLabel = ttk.Label(self.examFrame,textvariable=self.maxLoScaleStr).grid(row=2,column=2,sticky=tk.NW)
-        self.minLowerScaleLabel = ttk.Label(self.examFrame,textvariable=self.minLoScaleStr).grid(row=3,column=2,sticky=tk.SW)
-        
-        #self.scalesWatcher = Thread(self.updateColor)
-        # self.scalesWatcher.start()
-    
-    def updateColor(self):
-        pass
+    def updateColor(self,redScale,min,max):
+        self.imgObj.setColors(max,min,redScale)
+        self.imgObj.plotFigure()
+        self.imgObj.replaceRoi(self.canvasElemList)
+        self.updateImage()
 
     def reDraw(self):
         drawList = [x for x in self.canvasElemList if type(x) == DrawnLines]
@@ -97,7 +76,7 @@ class Environment:
                 #Refaz todos os draws (processo rapido) utilizando 2 pontos por cada vez (até o 2 ponto usa todos os disponiveis)
                 try:
                     splinePoints = list(sum(draw.dots[max(0,index-3):index], ()))
-                    resizedPoints = list(map(lambda x:x*self.imgObj.activeZoom,splinePoints))
+                    resizedPoints = list(map(lambda x:x*self.imgObj.activeZoom/draw.currentZoom,splinePoints))
                     self.resultCanvas.create_line(resizedPoints,width=10*draw.thickness,fill=draw.color,smooth=True)
                 except:
                     print("draw came out of the canvas")

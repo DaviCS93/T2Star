@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter.constants import END, NONE
+from PIL import ImageTk,Image
 from sys import exit as closeThread
 from threading import Thread
 from tkinter import BaseWidget, ttk
@@ -13,6 +15,7 @@ from enumInterface import TopMenuLabels as lblsTop
 from environment import Environment
 from errorHandler import LOGTYPE, printLog
 from shape import Shape
+from os import path
 
 
 class MainForm():
@@ -28,7 +31,7 @@ class MainForm():
         self.examDict = {}
         # Lista de threads para carregar os exames
         self.loaderList = []
-        self.envActive = None
+        self.envActive = self.job = None
         self.setForm()
         self.root.mainloop()
 
@@ -40,6 +43,8 @@ class MainForm():
         self.setRoot()
         self.setMainFrame()
         self.setEditMenu()
+        self.setPlotScales()
+        self.setHistory()
         self.setNotebook()
         self.setTopMenu()
 
@@ -52,39 +57,116 @@ class MainForm():
     def setMainFrame(self):
         self.mainFrame = ttk.Frame(self.root)
         self.mainFrame.grid(row=0,column=0,sticky=tk.NSEW)
-        self.mainFrame.rowconfigure(1,weight=1)
         self.mainFrame.columnconfigure(0,weight=1,uniform="mainframe")
-        self.mainFrame.columnconfigure(1,weight=4,uniform="mainframe")
+        self.mainFrame.columnconfigure(1,weight=5,uniform="mainframe")
+        self.mainFrame.columnconfigure(2,weight=2,uniform="mainframe")
+        self.mainFrame.rowconfigure(0,weight=1,uniform="historyframe")
+        self.mainFrame.rowconfigure(1,weight=1,uniform="historyframe")
+        # self.mainFrame.rowconfigure(2,weight=1,uniform="historyframe")
         self.mainFrame.bind(("<Escape>",self.clearCursor))
+
+    def setHistory(self):
+        self.historyMenu = ttk.Frame(self.mainFrame)
+        self.historyMenu.grid(row=0,column=2,sticky=tk.NSEW)
+        self.historyMenu.rowconfigure(0,weight=1)
+        self.historyMenu.columnconfigure(0,weight=1)
+        self.historyListItems = tk.StringVar()
+        self.historyListbox = ttk.Treeview(self.historyMenu,columns=['Name','Info'],height=10,selectmode='browse')
+        self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW)
 
     def setEditMenu(self):
         self.drawThickness = tk.DoubleVar(self.root)
+
         self.color = 'black'
         self.editMenu = ttk.Frame(self.mainFrame)
-        self.editMenu.grid(row=1,column=0,sticky=tk.NSEW)
+        self.editMenu.grid(row=0,column=0,rowspan=2,sticky=tk.NSEW)
         #self.editMenu.columnconfigure(0,weight=1)
         ttk.Button(self.editMenu,text=btns.RECTANGLE,command=lambda: self.cbRoi(Shape.RECTANGLE)).grid(row=1,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.CIRCLE,command=lambda: self.cbRoi(Shape.CIRCLE)).grid(row=2,column=0,sticky=tk.NW)
         ttk.Button(self.editMenu,text=btns.DRAW,command=lambda: self.cbDraw()).grid(row=3,column=0,sticky=tk.NW)
-        ttk.Button(self.editMenu,text=btns.TAG,command=lambda: self.cbTag()).grid(row=4,column=0,sticky=tk.NW)
-        ttk.Button(self.editMenu,text=btns.ZOOM_IN,command=lambda: self.cbZoom(True)).grid(row=5,column=0,sticky=tk.NW)
-        ttk.Button(self.editMenu,text=btns.ZOOM_OUT,command=lambda: self.cbZoom(False)).grid(row=6,column=0,sticky=tk.NW)
-        ttk.Scale(self.editMenu,orient=tk.HORIZONTAL,variable=self.drawThickness).grid(row=3,column=1,sticky=tk.NW)
+        ttk.Button(self.editMenu,text=btns.TAG,command=lambda: self.cbTag()).grid(row=5,column=0,sticky=tk.NW)
+        ttk.Button(self.editMenu,text=btns.ZOOM_IN,command=lambda: self.cbZoom(True)).grid(row=6,column=0,sticky=tk.NW)
+        ttk.Button(self.editMenu,text=btns.ZOOM_OUT,command=lambda: self.cbZoom(False)).grid(row=7,column=0,sticky=tk.NW)
+        ttk.Scale(self.editMenu,orient=tk.HORIZONTAL,variable=self.drawThickness).grid(row=4,column=0,columnspan=4,sticky=tk.NW)
         self.drawColorsMenu = ttk.Frame(self.editMenu)
-        self.drawColorsMenu.grid(row=7,column=1,sticky=tk.NW)
-        tk.Button(self.drawColorsMenu,bg=btns.BLUE,command=lambda: self.setColor('blue')).grid(row=6,column=0,sticky=tk.NW)
-        tk.Button(self.drawColorsMenu,bg=btns.RED,command=lambda: self.setColor('red')).grid(row=6,column=1,sticky=tk.NW)
-        tk.Button(self.drawColorsMenu,bg=btns.YELLOW,command=lambda: self.setColor('yellow')).grid(row=6,column=2,sticky=tk.NW)
-        tk.Button(self.drawColorsMenu,bg=btns.GREEN,command=lambda: self.setColor('green')).grid(row=6,column=3,sticky=tk.NW)
-        tk.Button(self.drawColorsMenu,bg=btns.BLACK,command=lambda: self.setColor('black')).grid(row=6,column=4,sticky=tk.NW)
+        self.drawColorsMenu.grid(row=8,column=1,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.BLUE,command=lambda: self.setColor('blue')).grid(row=0,column=0,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.RED,command=lambda: self.setColor('red')).grid(row=0,column=1,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.YELLOW,command=lambda: self.setColor('yellow')).grid(row=0,column=2,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.GREEN,command=lambda: self.setColor('green')).grid(row=0,column=3,sticky=tk.NW)
+        tk.Button(self.drawColorsMenu,bg=btns.BLACK,command=lambda: self.setColor('black')).grid(row=0,column=4,sticky=tk.NW)
         self.drawColorsMenu.grid_remove()
 
+    def setPlotScales(self):
+        self.scalesMenu = ttk.Frame(self.editMenu)
+        self.scalesMenu.grid(row=10,column=0,columnspan=4,sticky=tk.SW)
+        # Setting values for the scales (Max Min and Red Scale)
+        self.scaleMaxValue = tk.IntVar(self.scalesMenu)
+        self.scaleMinValue = tk.IntVar(self.scalesMenu)
+        self.scaleRedValue = tk.IntVar(self.scalesMenu)
+        self.scaleRedValue.set(50)
+        # Setting max and min values for both max and min scales, and setting red to keep between them
+
+
+        self.scaleMaxC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleMaxValue,label='Upper value')
+        self.scaleMaxC.grid(row=0,column=0,columnspan=4,sticky='SWE')
+        self.scaleMinC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleMinValue,label='Lower value')
+        self.scaleMinC.grid(row=1,column=0,columnspan=4,sticky='SWE')
+        self.scaleRed = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleRedValue,label='Red Value')
+        self.scaleRed.grid(row=2,column=0,columnspan=4,sticky='SWE')
+        self.scaleRef = tk.Canvas(master=self.scalesMenu)
+        self.scaleRef.grid(row=3,column=0,columnspan=4,sticky='SWE')  
+        self.configureScales(200,40)
+        self.scalesMenu.grid_remove()
+
+    def configureScales(self,minRoof=None,maxFloor=None):
+        '''
+        The ideia here is to set maximum and minimum values for the scales following the logic:
+        
+        |0-----min--------max-----250|\n
+        |0---------red------------100|
+
+        min can go from 0 to max\n
+        max can go from min to 250\n
+        red can go from 0 to 100%
+        '''
+        self.plotRoof = 250
+        self.plotFloor = 0
+        if minRoof == None:
+            minRoof = self.scaleMaxValue.get()
+        if maxFloor == None:
+            maxFloor =self.scaleMinValue.get()
+        self.scaleMaxC.configure(to=self.plotRoof,from_=maxFloor+20,tickinterval=(self.plotRoof-maxFloor)/10)
+        self.scaleMinC.configure(to=minRoof-20,from_=self.plotFloor,tickinterval=(minRoof-self.plotFloor)/10)
+        self.printScaleImage()
+        
+    def printScaleImage(self):
+        scale = Image.open(f'{path.dirname(__file__)}\\imgs\\scale.png')
+        resizedScale = scale.resize((self.scaleRef.winfo_width(),self.scaleMaxC.winfo_height())) 
+        self.scaleImage = ImageTk.PhotoImage(image=resizedScale,size=resizedScale.size)
+        self.scaleRef.create_image(0,0,anchor=tk.NW,image=self.scaleImage,tags='scaleImage')
+        self.scaleRef.update()            
+
+    def checkPlotColor(self):
+        if self.job:
+            self.root.after_cancel(self.job)
+        if self.envActive:
+            ma,mi,re = self.scaleMaxValue.get(),self.scaleMinValue.get(),self.scaleRedValue.get()
+            if (self.envActive.imgObj.maxColor != ma 
+                or self.envActive.imgObj.minColor != mi
+                or self.envActive.imgObj.redScale != re):
+                def changePlotColor(self,ma,mi,re):
+                    self.envActive.updateColor(re,mi,ma)
+                    self.configureScales(ma,mi)
+                self.job = self.root.after(500,changePlotColor,self,ma,mi,re)              
+
     def setColor(self,c):
-        self.color = c
+        if self.envActive:
+            self.color = c
 
     def setNotebook(self):
         self.notebook = ttk.Notebook(self.mainFrame,name=txt.NOTEBOOK)
-        self.notebook.grid(row=1,column=1,sticky=tk.NSEW)
+        self.notebook.grid(row=0,column=1,rowspan=2,sticky=tk.NSEW)
         self.root.update()
         self.notebook.bind("<<NotebookTabChanged>>", self.onEnvChange)
 
@@ -118,7 +200,15 @@ class MainForm():
   
     def onEnvChange(self,event):
         #print(self.notebook.index('current'))
+        self.job = None
         self.envActive = self.envDict[self.notebook.index(self.notebook.select())]
+        self.scaleMaxValue.set(self.envActive.imgObj.maxColor)
+        self.scaleMinValue.set(self.envActive.imgObj.minColor)
+        self.scaleRedValue.set(self.envActive.imgObj.redScale)
+        self.scalesMenu.grid()
+        self.configureScales()
+        for item in self.envActive.canvasElementList:
+            self.historyListbox.insert('',END,values=(str(item),item.getInfo()))
         self.clearCursor()
 
     def cbRoi(self,shape):

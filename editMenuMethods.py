@@ -58,7 +58,7 @@ def startDraw(event,env,thickness,color):
     x1, y1 = map(lambda x: x + 4.5*thickness,(event.x,event.y))
     x2, y2 = map(lambda x: x - 4.5*thickness,(event.x,event.y))
     event.widget.create_oval(x1,y1,x2,y2, outline=color,fill=color,width=1)
-    d = DrawnLines(event.x,event.y,thickness,color)
+    d = DrawnLines(event.x,event.y,thickness,color,env.imgObj.activeZoom)
     env.canvasElemList.append(d)
 
 def onMoveDraw(event,env,thickness,color):
