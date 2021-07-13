@@ -44,7 +44,6 @@ class MainForm():
         self.setMainFrame()
         self.setEditMenu()
         self.setPlotScales()
-        self.setHistory()
         self.setNotebook()
         self.setTopMenu()
 
@@ -58,21 +57,9 @@ class MainForm():
         self.mainFrame = ttk.Frame(self.root)
         self.mainFrame.grid(row=0,column=0,sticky=tk.NSEW)
         self.mainFrame.columnconfigure(0,weight=1,uniform="mainframe")
-        self.mainFrame.columnconfigure(1,weight=5,uniform="mainframe")
-        self.mainFrame.columnconfigure(2,weight=2,uniform="mainframe")
-        self.mainFrame.rowconfigure(0,weight=1,uniform="historyframe")
-        self.mainFrame.rowconfigure(1,weight=1,uniform="historyframe")
-        # self.mainFrame.rowconfigure(2,weight=1,uniform="historyframe")
+        self.mainFrame.columnconfigure(1,weight=4,uniform="mainframe")
+        self.mainFrame.rowconfigure(0,weight=1,uniform="sideframe")
         self.mainFrame.bind(("<Escape>",self.clearCursor))
-
-    def setHistory(self):
-        self.historyMenu = ttk.Frame(self.mainFrame)
-        self.historyMenu.grid(row=0,column=2,sticky=tk.NSEW)
-        self.historyMenu.rowconfigure(0,weight=1)
-        self.historyMenu.columnconfigure(0,weight=1)
-        self.historyListItems = tk.StringVar()
-        self.historyListbox = ttk.Treeview(self.historyMenu,columns=['Name','Info'],height=10,selectmode='browse')
-        self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW)
 
     def setEditMenu(self):
         self.drawThickness = tk.DoubleVar(self.root)
@@ -207,8 +194,6 @@ class MainForm():
         self.scaleRedValue.set(self.envActive.imgObj.redScale)
         self.scalesMenu.grid()
         self.configureScales()
-        for item in self.envActive.canvasElementList:
-            self.historyListbox.insert('',END,values=(str(item),item.getInfo()))
         self.clearCursor()
 
     def cbRoi(self,shape):
@@ -242,7 +227,7 @@ class MainForm():
         self.clearCursor()
         #cnv =self.envActive.resultCanvas
         self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startTag(
-            env=self.envActive,event=event))
+            env=self.envActive+,event=event))
         
     def loadImageNotebook(self):
         """
@@ -268,16 +253,17 @@ class MainForm():
         frm = ttk.Frame(self.notebook,name=exam)
         self.notebook.add(frm,text=exam)
         frm.rowconfigure(0,weight=1)
-        frm.columnconfigure(0,weight=2,uniform='notebook')
-        frm.columnconfigure(1,weight=1,uniform='notebook')
+        frm.columnconfigure(0,weight=1,uniform='notebook')
         return frm
 
     def clearCursor(self):
-        frmName = self.notebook.select()
-        frm = self.root.nametowidget(frmName)
-        for cnvName in frm.children[txt.EXAMIMAGE].children:
+        for key in self.envDict:
+            # frmName = self.notebook.select()
+            # frm = self.root.nametowidget(frmName)
+            # for cnvName in frm.children[txt.EXAMIMAGE].children:
             # Pega o canvas atual
-            cnv = self.root.nametowidget(".".join((frmName,txt.EXAMIMAGE,cnvName)))
+            cnv = self.envDict[key].resultCanvas
+            # cnv = self.root.nametowidget(".".join((frmName,txt.EXAMIMAGE,cnvName)))
             self.drawColorsMenu.grid_remove()
             cnv.unbind("<ButtonPress-1>")
             cnv.unbind("<B1-Motion>")

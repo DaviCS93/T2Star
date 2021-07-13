@@ -7,7 +7,7 @@ from shape import Shape
 def startRoi(env,event,shape):
     newRoi = ROI(shape)
     newRoi.setStart(event.x,event.y)
-    env.canvasElemList.append(newRoi)
+    env.addCanvasElement(newRoi)
     #print ("clicked at", event.x, event.y)
     if shape == Shape.RECTANGLE:
         env.activeROI = event.widget.create_rectangle(event.x,event.y,event.x,event.y, outline='black',width=3)
@@ -59,7 +59,7 @@ def startDraw(event,env,thickness,color):
     x2, y2 = map(lambda x: x - 4.5*thickness,(event.x,event.y))
     event.widget.create_oval(x1,y1,x2,y2, outline=color,fill=color,width=1)
     d = DrawnLines(event.x,event.y,thickness,color,env.imgObj.activeZoom)
-    env.canvasElemList.append(d)
+    env.addCanvasElement(d)
 
 def onMoveDraw(event,env,thickness,color):
     coords = [x for x in env.canvasElemList[-1].dots[-2:]]
@@ -104,5 +104,5 @@ def startTag(event,env):
 def releaseTag(popup,text,x,y,canvas,env):
     canvas.create_text(x,y,font="Arial 12 bold",text=text)
     t = Tag(x,y,text)
-    env.canvasElemList.append(t)
+    env.addCanvasElement(t)
     popup.destroy()

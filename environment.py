@@ -1,4 +1,4 @@
-from tkinter.constants import X
+from tkinter.constants import X,END
 from canvasElements import DrawnLines,ROI,Tag
 import tkinter as tk
 from tkinter import ttk
@@ -29,6 +29,7 @@ class Environment:
         self.activeROI = None
         # Taxa de zoom
         self.zoomFactor = 1.2
+        self.historyListItems = tk.StringVar()
 
     @timer
     def updateImage(self):
@@ -56,11 +57,29 @@ class Environment:
 
     def createExamViewer(self,frm):
         self.examFrame = ttk.Frame(frm,name=txt.EXAMIMAGE)
-        self.examFrame.rowconfigure('0 1 2 3',weight=1,uniform='examFrame')
-        self.examFrame.columnconfigure(0,weight=1)
+        self.examFrame.rowconfigure(0,weight=1,uniform='examFrame')
+        self.examFrame.columnconfigure(0,weight=3,uniform='sideFrame')
+        self.examFrame.columnconfigure(1,weight=1,uniform='sideFrame')
         self.examFrame.grid(row=0,column=0,sticky=tk.NSEW)    
-        self.resultCanvas = tk.Canvas(master=self.examFrame)
-        self.resultCanvas.grid(row=0,rowspan=4,column=0)  
+        
+        self.examBox = tk.LabelFrame(self.examFrame,text=self.examID)
+        self.examBox.grid(row=0,column=0,sticky=tk.NSEW)
+        self.examBox.rowconfigure(0,weight=1)
+        self.examBox.columnconfigure(0,weight=1)
+        
+        self.sideBox = tk.LabelFrame(self.examFrame,text='Edit history')
+        self.sideBox.grid(row=0,column=1,sticky=tk.NSEW)
+        self.sideBox.columnconfigure(0,weight=1)
+
+        self.resultCanvas = tk.Canvas(master=self.examBox)
+        self.resultCanvas.grid(row=0,column=0)
+        self.historyListbox = ttk.Treeview(self.sideBox,columns=['Name','Info'],height=10,selectmode='browse')
+        self.historyListbox.column('#0',width=0,stretch=False)
+        self.historyListbox.column('Name',width=100,stretch=False)
+        self.historyListbox.heading('Name', text='Name')
+        self.historyListbox.column('Info',stretch=True)
+        self.historyListbox.heading('Info', text='Info')
+        self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW)
 
     def updateColor(self,redScale,min,max):
         self.imgObj.setColors(max,min,redScale)
@@ -92,3 +111,7 @@ class Environment:
             except:
                 print("text came out of the canvas")
                 pass
+
+    def addCanvasElement(self,element):
+        self.canvasElemList.append(element)
+        self.historyListbox.insert('',END,values=(str(element),element.getInfo()))

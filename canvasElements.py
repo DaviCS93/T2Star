@@ -1,9 +1,8 @@
-from abc import ABCMeta,abstractmethod
-class canvasElement(ABCMeta):
+from abc import ABC,abstractmethod
+class canvasElement(ABC):
     def __str__(self):
-        return self.__name__
+        return self.__class__.__name__
 
-    
     @abstractmethod
     def getInfo(self):
         pass
@@ -53,7 +52,7 @@ class DrawnLines(canvasElement):
        self.dots.append((x,y))
          
     def getInfo(self):
-        return f'{self.color.upper()}({self.dots[0]},{self.dots[1]})'
+        return f'{self.color.upper()}({self.dots[0][0]},{self.dots[0][1]})'
 
 class Tag(canvasElement):
     def __init__(self,x,y,text):
@@ -62,6 +61,7 @@ class Tag(canvasElement):
         self.text = text
 
     def getInfo(self):
-        return f'{self.text}({self.x},{self.y})'
-    
+        editedText = ' '.join(self.text.replace('\n',' ').split())
+        return f'{editedText}({self.x},{self.y})'
+     
     

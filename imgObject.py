@@ -55,7 +55,7 @@ class imgObject():
         elif redScale <0.5:
             0 > 128
             0.5 > 0
-            
+
             jet_arr=jet_arr[(int((redScale*(-256)+128))):len(jet_arr),:] #deletar slice redScale*256
         jet_combined_arr = np.concatenate((jet_arr,jet_reverse_arr))
         jet_combined = ListedColormap(jet_combined_arr)
@@ -200,11 +200,12 @@ class imgObject():
                 #Para o centro fazemos o canto menos o outro para conseguir o lado
                 #Então, dividimos por 2 para ter o centro e somamos o 1 canto
                 #para ter o centro do lado em relação ao zero do Roi
-                circleCenter = (int(roi.x1+(roi.x2-roi.x1)/2),int(roi.y1+(roi.y2-roi.y1)/2))
+                circleCenter = (int(roi.x1+((roi.x2-roi.x1)/2)),int(roi.y1+((roi.y2-roi.y1)/2)))
                 #Para o raio, é só usar a mesma logica do centro
                 #Só que sem somar o zero do Roi
-                radius = int((roi.x2-roi.x1)/2)
-                mask = cv2.circle(mask,circleCenter,radius,(255, 255, 255), -1) # pylint: disable=maybe-no-member
+                print(circleCenter)
+                radius = abs(int((roi.x2-roi.x1)/2))
+                mask = cv2.circle(mask,circleCenter,radius,(255, 255, 255), cv2.FILLED) # pylint: disable=maybe-no-member
             mask_inv = cv2.bitwise_not(mask) # pylint: disable=maybe-no-member
             imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv) # pylint: disable=maybe-no-member
             imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
