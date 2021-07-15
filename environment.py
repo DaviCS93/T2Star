@@ -1,3 +1,4 @@
+from os import remove
 from tkinter.constants import X,END
 from canvasElements import DrawnLines,ROI,Tag
 import tkinter as tk
@@ -57,9 +58,9 @@ class Environment:
 
     def createExamViewer(self,frm):
         self.examFrame = ttk.Frame(frm,name=txt.EXAMIMAGE)
-        self.examFrame.rowconfigure(0,weight=1,uniform='examFrame')
-        self.examFrame.columnconfigure(0,weight=3,uniform='sideFrame')
-        self.examFrame.columnconfigure(1,weight=1,uniform='sideFrame')
+        self.examFrame.rowconfigure(0,weight=1)
+        self.examFrame.columnconfigure(0,weight=4,uniform='examFrame')
+        self.examFrame.columnconfigure(1,weight=2,uniform='examFrame')
         self.examFrame.grid(row=0,column=0,sticky=tk.NSEW)    
         
         self.examBox = tk.LabelFrame(self.examFrame,text=self.examID)
@@ -67,19 +68,40 @@ class Environment:
         self.examBox.rowconfigure(0,weight=1)
         self.examBox.columnconfigure(0,weight=1)
         
-        self.sideBox = tk.LabelFrame(self.examFrame,text='Edit history')
-        self.sideBox.grid(row=0,column=1,sticky=tk.NSEW)
-        self.sideBox.columnconfigure(0,weight=1)
+        self.sideInfo = ttk.Frame(self.examFrame)
+        self.sideInfo.grid(row=0,column=1,sticky=tk.NSEW)
+        self.sideInfo.rowconfigure('0 2',weight=1,uniform='sideframe')
 
         self.resultCanvas = tk.Canvas(master=self.examBox)
         self.resultCanvas.grid(row=0,column=0)
-        self.historyListbox = ttk.Treeview(self.sideBox,columns=['Name','Info'],height=10,selectmode='browse')
-        self.historyListbox.column('#0',width=0,stretch=False)
-        self.historyListbox.column('Name',width=100,stretch=False)
-        self.historyListbox.heading('Name', text='Name')
-        self.historyListbox.column('Info',stretch=True)
-        self.historyListbox.heading('Info', text='Info')
-        self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW)
+
+        self.createRoiInfoBox()
+        self.createHistoryListBox()
+        self.createDecayBox()
+
+    def changeSelectedRoi(self,event):
+        selectedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.selection()][0]
+        if type(selectedRoi) == ROI:
+            self.meanVar = selectedRoi.mean
+            self.stdVar = selectedRoi.std
+            self.minVar = selectedRoi.min
+            self.maxVar = selectedRoi.max
+            self.areaVar = selectedRoi.area
+            self.pixVar = selectedRoi.pix
+        else:
+            self.meanVar = ""
+            self.stdVar = ""
+            self.minVar = ""
+            self.maxVar = ""
+            self.areaVar = ""
+            self.pixVar = ""
+
+    def deleteSelectedRoi(self,event):
+        removedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.selection()[0]][0]
+        self.historyListbox.delete(self.historyListbox.selection())
+        self.canvasElemList.remove(removedRoi)
+        self.imgObj.replaceRoi(self.canvasElemList)
+        self.updateImage()
 
     def updateColor(self,redScale,min,max):
         self.imgObj.setColors(max,min,redScale)
@@ -114,4 +136,69 @@ class Environment:
 
     def addCanvasElement(self,element):
         self.canvasElemList.append(element)
-        self.historyListbox.insert('',END,values=(str(element),element.getInfo()))
+        self.historyListbox.insert('',END,iid=element.elmId,values=(str(element),element.getInfo()))
+
+    def createRoiInfoBox(self): 
+        self.roiInfoBox = tk.LabelFrame(self.sideInfo,text='Roi Information')
+        self.roiInfoBox.grid(row=1,column=1,sticky=tk.NSEW)
+        #Desvio padrão Min Max Area pix
+        self.meanLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Mean:")
+        self.meanLbl.grid(row=0,column=0,sticky=tk.NE,pady=(5,0))
+        self.stdLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Std:")
+        self.stdLbl.grid(row=1,column=0,sticky=tk.NE,pady=(5,0))
+        self.minLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Min:")
+        self.minLbl.grid(row=2,column=0,sticky=tk.NE,pady=(5,0))
+        self.maxLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Max:")
+        self.maxLbl.grid(row=3,column=0,sticky=tk.NE,pady=(5,0))
+        self.areaLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Area:")
+        self.areaLbl.grid(row=4,column=0,sticky=tk.NE,pady=(5,0))
+        self.pixLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="pix:")
+        self.pixLbl.grid(row=5,column=0,sticky=tk.NE,pady=(5,5))
+        
+        self.meanVar = tk.StringVar(self.roiInfoBox)
+        self.stdVar = tk.StringVar(self.roiInfoBox)
+        self.minVar = tk.StringVar(self.roiInfoBox)
+        self.maxVar = tk.StringVar(self.roiInfoBox)
+        self.areaVar = tk.StringVar(self.roiInfoBox)
+        self.pixVar = tk.StringVar(self.roiInfoBox)
+
+        self.meanInfo = tk.Label(self.roiInfoBox,textvariable=self.meanVar)
+        self.meanInfo.grid(row=1,column=1,sticky=tk.NW)
+        self.minInfo = tk.Label(self.roiInfoBox,textvariable=self.minVar)
+        self.minInfo.grid(row=2,column=1,sticky=tk.NW)
+        self.maxInfo = tk.Label(self.roiInfoBox,textvariable=self.maxVar)
+        self.maxInfo.grid(row=3,column=1,sticky=tk.NW)
+        self.areaInfo = tk.Label(self.roiInfoBox,textvariable=self.areaVar)
+        self.areaInfo.grid(row=4,column=1,sticky=tk.NW)
+        self.pixInfo = tk.Label(self.roiInfoBox,textvariable=self.pixVar)
+        self.pixInfo.grid(row=5,column=1,sticky=tk.NW)
+
+    def createHistoryListBox(self):
+        self.itemsBox = tk.LabelFrame(self.sideInfo,text='Edit history')
+        self.itemsBox.grid(row=0,column=1,sticky=tk.NSEW)
+        self.itemsBox.columnconfigure(0,weight=1)
+        self.itemsBox.rowconfigure(0,weight=1)
+        self.historyListbox = ttk.Treeview(self.itemsBox,columns=['Name','Info'],selectmode='browse')
+        self.historyListbox.bind('<<TreeviewSelect>>',lambda event: self.changeSelectedRoi(event))
+        self.historyListbox.event_add('<<DeleteTreeViewItem>>', '<Delete>')
+        self.historyListbox.bind('<<DeleteTreeViewItem>>',lambda event: self.deleteSelectedRoi(event))
+        self.historyListbox.column('#0',width=0,stretch=False)
+        self.historyListbox.column('Name',width=100,stretch=False)
+        self.historyListbox.heading('Name', text='Name')
+        self.historyListbox.column('Info',stretch=True)
+        self.historyListbox.heading('Info', text='Info')
+        self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW,pady=(10,0))
+
+    def createDecayBox(self):
+        self.decayBox = tk.LabelFrame(self.sideInfo,text='Decay and MSE')
+        self.decayBox.grid(row=2,column=1,sticky=tk.NSEW)
+        self.decayBox.columnconfigure(2,weight=1)
+        self.decayBox.rowconfigure(0,weight=1)
+        self.decayCanvas = tk.Canvas(master=self.decayBox)
+        self.decayCanvas.grid(row=0,column=0,columnspan=2)
+        self.mseLbl = tk.Label(self.decayBox,text="MSE:")
+        self.mseLbl.grid(row=1,column=0,sticky=tk.SW)
+        self.mseVar = tk.StringVar(self.decayBox)
+        self.mseInfo = tk.Label(self.decayBox,textvariable=self.mseVar)
+        self.mseInfo.grid(row=1,column=1,sticky=tk.SW,pady=20)
+        

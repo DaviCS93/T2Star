@@ -17,7 +17,6 @@ from errorHandler import LOGTYPE, printLog
 from shape import Shape
 from os import path
 
-
 class MainForm():
     
     def __init__(self):
@@ -227,7 +226,7 @@ class MainForm():
         self.clearCursor()
         #cnv =self.envActive.resultCanvas
         self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startTag(
-            env=self.envActive+,event=event))
+            env=self.envActive,event=event))
         
     def loadImageNotebook(self):
         """

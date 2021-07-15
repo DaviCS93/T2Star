@@ -1,5 +1,14 @@
 from abc import ABC,abstractmethod
+from random import Random
 class canvasElement(ABC):
+    elmIds = []
+
+    def __init__(self):
+        self.elmId = ''
+        while self.elmId == '' or self.elmId in self.elmIds:
+            self.elmId = str(Random().random()).split('.')[-1]
+        self.elmIds.append(self.elmId)    
+
     def __str__(self):
         return self.__class__.__name__
 
@@ -7,14 +16,23 @@ class canvasElement(ABC):
     def getInfo(self):
         pass
 
-
 class ROI(canvasElement):
     def __init__(self,shape):
+        super().__init__()
         self.shape = shape
         self.x1 = 0
         self.y1 = 0
         self.x2 = 0
         self.y2 = 0
+        self.definedInfo = False
+        self.mean = 0.0
+        self.std = 0.0
+        self.min = 0.0
+        self.max = 0.0
+        self.area = 0.0
+        self.pix = 0.0
+        self.decayImg = None
+        self.mse = 0.0
 
     def setStart(self,x,y):
         self.x1 = x
@@ -37,6 +55,7 @@ class ROI(canvasElement):
 
 class DrawnLines(canvasElement):
     def __init__(self,x,y,thickness,color,zoom):
+        super().__init__()
         self.dots = [(x,y)]
         self.xLast = x
         self.yLast = y
@@ -56,6 +75,7 @@ class DrawnLines(canvasElement):
 
 class Tag(canvasElement):
     def __init__(self,x,y,text):
+        super().__init__()
         self.x = x
         self.y = y
         self.text = text
