@@ -31,8 +31,11 @@ class ROI(canvasElement):
         self.max = 0.0
         self.area = 0.0
         self.pix = 0.0
+        self.decayImgFile = ""
         self.decayImg = None
         self.mse = 0.0
+        self.decay = None
+        self.time = None
 
     def setStart(self,x,y):
         self.x1 = x

@@ -23,4 +23,5 @@ class Texts():
 
 class TopMenuLabels():
     FILE = "File"
-    LOADEXAM = "Load new Exam"
+    LOADEXAMBATCH = "Load new Exam by batch"
+    LOADEXAMNORMAL = "Load new Exam"

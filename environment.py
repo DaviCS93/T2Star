@@ -8,6 +8,7 @@ from enumInterface import Texts as txt
 from imgObject import imgObject as imgObj
 from threading import Thread
 from decorators import timer
+from PIL import ImageTk,Image
 
 class Environment:
 
@@ -57,7 +58,7 @@ class Environment:
             self.imgObj.activeZoom /= self.zoomFactor
 
     def createExamViewer(self,frm):
-        self.examFrame = ttk.Frame(frm,name=txt.EXAMIMAGE)
+        self.examFrame = tk.Frame(frm,name=txt.EXAMIMAGE)
         self.examFrame.rowconfigure(0,weight=1)
         self.examFrame.columnconfigure(0,weight=4,uniform='examFrame')
         self.examFrame.columnconfigure(1,weight=2,uniform='examFrame')
@@ -68,10 +69,10 @@ class Environment:
         self.examBox.rowconfigure(0,weight=1)
         self.examBox.columnconfigure(0,weight=1)
         
-        self.sideInfo = ttk.Frame(self.examFrame)
+        self.sideInfo = tk.Frame(self.examFrame)
         self.sideInfo.grid(row=0,column=1,sticky=tk.NSEW)
         self.sideInfo.rowconfigure('0 2',weight=1,uniform='sideframe')
-
+        self.sideInfo.columnconfigure(0,weight=2,uniform='sideframe')
         self.resultCanvas = tk.Canvas(master=self.examBox)
         self.resultCanvas.grid(row=0,column=0)
 
@@ -80,24 +81,36 @@ class Environment:
         self.createDecayBox()
 
     def changeSelectedRoi(self,event):
-        selectedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.selection()][0]
+        #a = [x for x in self.canvasElemList]
+        selectedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.selection()[0]][0]
         if type(selectedRoi) == ROI:
-            self.meanVar = selectedRoi.mean
-            self.stdVar = selectedRoi.std
-            self.minVar = selectedRoi.min
-            self.maxVar = selectedRoi.max
-            self.areaVar = selectedRoi.area
-            self.pixVar = selectedRoi.pix
+            self.meanVar.set(selectedRoi.mean)
+            self.stdVar.set(selectedRoi.std)
+            self.minVar.set(selectedRoi.min)
+            self.maxVar.set(selectedRoi.max)
+            self.areaVar.set(selectedRoi.area)
+            self.pixVar.set(selectedRoi.pix)
+            
+            scale = Image.open(selectedRoi.decayImgFile)
+            self.decayCanvas.delete("all")  
+            size = (self.decayCanvas.winfo_width(),self.decayCanvas.winfo_height())
+            #size[0] = scale.size[0] if size[0] > scale.size[0] else size[0]
+            resizedScale = scale.resize(size) 
+            selectedRoi.decayImg = ImageTk.PhotoImage(image=resizedScale,size=resizedScale.size)
+            self.decayCanvas.create_image(int(self.decayCanvas.winfo_width()/2),0,anchor=tk.N,image=selectedRoi.decayImg)
+            self.decayCanvas.update()    
         else:
-            self.meanVar = ""
-            self.stdVar = ""
-            self.minVar = ""
-            self.maxVar = ""
-            self.areaVar = ""
-            self.pixVar = ""
+            self.meanVar .set("")
+            self.stdVar .set("")
+            self.minVar .set("")
+            self.maxVar .set("")
+            self.areaVar .set("")
+            self.pixVar .set("")
+            self.decayCanvas.delete("all")   
+        self.examFrame.winfo_toplevel().update_idletasks()
 
     def deleteSelectedRoi(self,event):
-        removedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.selection()[0]][0]
+        removedRoi = [x for x in self.canvasElemList if x.elmId == self.historyListbox.focus()][0]
         self.historyListbox.delete(self.historyListbox.selection())
         self.canvasElemList.remove(removedRoi)
         self.imgObj.replaceRoi(self.canvasElemList)
@@ -105,6 +118,12 @@ class Environment:
 
     def updateColor(self,redScale,min,max):
         self.imgObj.setColors(max,min,redScale)
+        self.imgObj.plotFigure()
+        self.imgObj.replaceRoi(self.canvasElemList)
+        self.updateImage()
+
+    def updateGray(self,min,max):
+        self.imgObj.setGray(max,min)
         self.imgObj.plotFigure()
         self.imgObj.replaceRoi(self.canvasElemList)
         self.updateImage()
@@ -137,10 +156,10 @@ class Environment:
     def addCanvasElement(self,element):
         self.canvasElemList.append(element)
         self.historyListbox.insert('',END,iid=element.elmId,values=(str(element),element.getInfo()))
-
+        
     def createRoiInfoBox(self): 
         self.roiInfoBox = tk.LabelFrame(self.sideInfo,text='Roi Information')
-        self.roiInfoBox.grid(row=1,column=1,sticky=tk.NSEW)
+        self.roiInfoBox.grid(row=1,column=0,sticky=tk.NSEW)
         #Desvio padrão Min Max Area pix
         self.meanLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Mean:")
         self.meanLbl.grid(row=0,column=0,sticky=tk.NE,pady=(5,0))
@@ -149,11 +168,11 @@ class Environment:
         self.minLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Min:")
         self.minLbl.grid(row=2,column=0,sticky=tk.NE,pady=(5,0))
         self.maxLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Max:")
-        self.maxLbl.grid(row=3,column=0,sticky=tk.NE,pady=(5,0))
+        self.maxLbl.grid(row=0,column=2,sticky=tk.NE,pady=(5,0))
         self.areaLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Area:")
-        self.areaLbl.grid(row=4,column=0,sticky=tk.NE,pady=(5,0))
+        self.areaLbl.grid(row=1,column=2,sticky=tk.NE,pady=(5,0))
         self.pixLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="pix:")
-        self.pixLbl.grid(row=5,column=0,sticky=tk.NE,pady=(5,5))
+        self.pixLbl.grid(row=2,column=2,sticky=tk.NE,pady=(5,5))
         
         self.meanVar = tk.StringVar(self.roiInfoBox)
         self.stdVar = tk.StringVar(self.roiInfoBox)
@@ -163,19 +182,21 @@ class Environment:
         self.pixVar = tk.StringVar(self.roiInfoBox)
 
         self.meanInfo = tk.Label(self.roiInfoBox,textvariable=self.meanVar)
-        self.meanInfo.grid(row=1,column=1,sticky=tk.NW)
+        self.meanInfo.grid(row=0,column=1,sticky=tk.NW,pady=(5,0))
+        self.stdInfo = tk.Label(self.roiInfoBox,textvariable=self.stdVar)
+        self.stdInfo.grid(row=1,column=1,sticky=tk.NW,pady=(5,0))
         self.minInfo = tk.Label(self.roiInfoBox,textvariable=self.minVar)
-        self.minInfo.grid(row=2,column=1,sticky=tk.NW)
+        self.minInfo.grid(row=2,column=1,sticky=tk.NW,pady=(5,0))
         self.maxInfo = tk.Label(self.roiInfoBox,textvariable=self.maxVar)
-        self.maxInfo.grid(row=3,column=1,sticky=tk.NW)
+        self.maxInfo.grid(row=0,column=3,sticky=tk.NW,pady=(5,0))
         self.areaInfo = tk.Label(self.roiInfoBox,textvariable=self.areaVar)
-        self.areaInfo.grid(row=4,column=1,sticky=tk.NW)
+        self.areaInfo.grid(row=1,column=3,sticky=tk.NW,pady=(5,0))
         self.pixInfo = tk.Label(self.roiInfoBox,textvariable=self.pixVar)
-        self.pixInfo.grid(row=5,column=1,sticky=tk.NW)
+        self.pixInfo.grid(row=2,column=3,sticky=tk.NW,pady=(5,0))
 
     def createHistoryListBox(self):
         self.itemsBox = tk.LabelFrame(self.sideInfo,text='Edit history')
-        self.itemsBox.grid(row=0,column=1,sticky=tk.NSEW)
+        self.itemsBox.grid(row=0,column=0,sticky=tk.NSEW)
         self.itemsBox.columnconfigure(0,weight=1)
         self.itemsBox.rowconfigure(0,weight=1)
         self.historyListbox = ttk.Treeview(self.itemsBox,columns=['Name','Info'],selectmode='browse')
@@ -191,14 +212,14 @@ class Environment:
 
     def createDecayBox(self):
         self.decayBox = tk.LabelFrame(self.sideInfo,text='Decay and MSE')
-        self.decayBox.grid(row=2,column=1,sticky=tk.NSEW)
-        self.decayBox.columnconfigure(2,weight=1)
+        self.decayBox.grid(row=2,column=0,sticky=tk.NSEW)
+        self.decayBox.columnconfigure(1,weight=1)
         self.decayBox.rowconfigure(0,weight=1)
         self.decayCanvas = tk.Canvas(master=self.decayBox)
-        self.decayCanvas.grid(row=0,column=0,columnspan=2)
+        self.decayCanvas.grid(row=0,column=0,columnspan=2,sticky=tk.NSEW)
         self.mseLbl = tk.Label(self.decayBox,text="MSE:")
         self.mseLbl.grid(row=1,column=0,sticky=tk.SW)
         self.mseVar = tk.StringVar(self.decayBox)
         self.mseInfo = tk.Label(self.decayBox,textvariable=self.mseVar)
-        self.mseInfo.grid(row=1,column=1,sticky=tk.SW,pady=20)
+        self.mseInfo.grid(row=1,column=1,sticky=tk.SW,pady=5)
         

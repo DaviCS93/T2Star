@@ -24,10 +24,13 @@ class imgObject():
         self.imgMSE = None
         self.maxColor = 200
         self.minColor = 40
+        self.maxGray = 200
+        self.minGray = 0
         self.redScale = 50
         self.listROI = []
         self.listEchoTime = []
         self.color = self.defineJet()
+        self.gray = self.defineGray()
         self.figure = plt.figure(figsize=(6, 6),frameon=False)
         self.dicomList = dicomList
         self.grayName = ""
@@ -47,6 +50,21 @@ class imgObject():
         self.plotFigure()
 
     @timer    
+    def defineGray(self):
+        """
+        docstring
+        """
+        gray = matplot.cm.get_cmap(name='gray')
+        gradient = np.linspace(0, 1, 180)
+        gradient = np.vstack((gradient, gradient))
+        fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
+        ax.imshow(gradient, aspect='auto', cmap=gray)
+        ax.set_axis_off()
+        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scalegray.png",bbox_inches = 'tight', dpi=200)
+        plt.close()
+        return gray
+        
+    @timer    
     def defineJet(self):
         """
         docstring
@@ -59,9 +77,6 @@ class imgObject():
         if redScale >0.5:
             jet_reverse_arr=jet_reverse_arr[1:-1-(int((redScale-0.5)*256)),:] #deletar slice (redScale-0.5)*256
         elif redScale <0.5:
-            0 > 128
-            0.5 > 0
-
             jet_arr=jet_arr[(int((redScale*(-256)+128))):len(jet_arr),:] #deletar slice redScale*256
         jet_combined_arr = np.concatenate((jet_arr,jet_reverse_arr))
         jet_combined = ListedColormap(jet_combined_arr)
@@ -71,6 +86,7 @@ class imgObject():
         ax.imshow(gradient, aspect='auto', cmap=jet_combined)
         ax.set_axis_off()
         plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scale.png",bbox_inches = 'tight', dpi=200)
+        plt.close()
         return jet_combined
         
     @timer 
@@ -107,15 +123,11 @@ class imgObject():
         self.imageMean[self.imageMean<30] = 0 #
 
         # We create a vector to be easier to process
-        #for index in range(len(self.dicomList)): 
-            # analysis =np.append(analysis,np.reshape(self.imageMean[index],(
-            #     len(self.imageMean[0])*len(self.imageMean[0][0]),1))) 
-            # analysis[:,[index]] = np.reshape(self.imageMean[index],(
-            #     len(self.imageMean[0])*len(self.imageMean[0][0]),1))
         analysis = np.reshape(self.imageMean,
             (self.size[0]*self.size[1],len(self.dicomList)))
 
         matLog = np.log(analysis)
+        matLog[matLog == -inf] = 0
         arrSum = matLog.sum(axis=1)
         arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
 
@@ -125,13 +137,15 @@ class imgObject():
         #P = np.apply_along_axis(lambda x:np.matmul(invA,x),0,arrB)
         P = np.matmul(invA,arrB)
         
-        P[np.isnan(P)] = 0
 
         self.imgMatrix = np.transpose(P)[:,[1]]
-        self.imgMatrix = 1000/self.imgMatrix
-        self.imgMatrix[self.imgMatrix == inf] = 0
-        # Reshape T2 for the size needed
         self.imgMatrix = np.reshape(self.imgMatrix,self.size)
+        self.imgMatrix = 1000/self.imgMatrix
+        self.imgMatrix[np.isnan(self.imgMatrix)] = inf
+        self.imgMatrix[self.imgMatrix == inf] = 255
+        self.imgMatrix[self.imgMatrix > 255] = 255
+        self.imgMatrix[self.imgMatrix < 0] = 0
+        # Reshape T2 for the size needed
         self.s0 = np.reshape(np.transpose(P)[:,[0]],self.size)
         ex = np.exp(-np.reshape(self.echoTimeArr,(self.echoTimeArr.shape[0],1)))
         yTemp = np.matmul(self.imgMatrix,np.exp(self.s0)) #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
@@ -142,21 +156,22 @@ class imgObject():
         self.imgMSE = np.reshape(self.imgMSE,self.size)
     
     @timer 
-    def plotFigure(self,gray=True):
+    def plotFigure(self):
         # Deletar imagens da pasta antes
         if os.path.isfile(self.colorName):
             map(os.remove,(self.colorName,self.grayName))
         self.colorName = f'{os.path.dirname(__file__)}\\imgs\\color{self.dicomList[0].StudyID}.png'
-        if gray:
-            self.grayName = f'{os.path.dirname(__file__)}\\imgs\\gray{self.dicomList[0].StudyID}.png'
-            self.exportFigure(self.dicomList[0].pixel_array,self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
-            self.imgEcho = Image.open(self.grayName)
+        self.grayName = f'{os.path.dirname(__file__)}\\imgs\\gray{self.dicomList[0].StudyID}.png'
+        #self.exportFigure(self.dicomList[0].pixel_array,self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
+        imgTemp = np.copy(self.imgMatrix)
+        imgTemp[imgTemp>self.maxGray] = self.maxGray
+        imgTemp[imgTemp<self.minGray] = self.minGray
+        self.exportFigure(imgTemp,self.grayName,cmap=self.gray, plt_show=False)
         self.exportFigure(self.imgMatrix, self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
-        imgTemp = cv2.imread(self.grayName)
-        imgTemp = cv2.cvtColor(imgTemp,cv2.COLOR_BGR2GRAY)
         # self.imgCanny = cv2.Canny(imgTemp,40,150)
         # self.cannyName = f'{os.path.dirname(__file__)}\\imgs\\canny{self.dicomList[0].StudyID}.png'
         # self.exportFigure(self.imgCanny,self.cannyName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
+        self.imgEcho = Image.open(self.grayName)
         self.imgStar = Image.open(self.colorName)
         # self.imgCanny = Image.open(self.cannyName)
         self.resultImage = self.removeTransparency(self.imgEcho)
@@ -182,6 +197,15 @@ class imgObject():
         self.minColor = min
         self.redScale = red
         self.color = self.defineJet()
+
+    @timer 
+    def setGray(self,max,min):
+        """
+        docstring
+        """
+        self.maxGray = max
+        self.minGray = min
+        #self.gray = self.defineGray()
 
     @timer 
     def exportFigure(self, matrix, f_name, cmap, dpi=200, resize_fact=1, plt_show=False, vmin=None, vmax=None):
@@ -232,58 +256,40 @@ class imgObject():
             imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv) # pylint: disable=maybe-no-member
             imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
             cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
-            # if not roi.definedInfo: 
-            #     roi.mean,roi.std = cv2.meanStdDev(cvStar,mask)
-            #     roi.min,roi.max  = cv2.minMaxLoc(cvStar,mask)
-            #     roi.area =cv2.contourArea(cvStar,mask)
-            #     roi.pix = 100*cv2.mean(cvStar,mask)
+            if not roi.definedInfo: 
+                roi.mean,roi.std = cv2.meanStdDev(self.imgMatrix,mask=mask)
+                roi.mean,roi.std = round(roi.mean[0][0], 2),round(roi.std[0][0], 2)
+                roi.min,roi.max,_,_  = cv2.minMaxLoc(self.imgMatrix,mask)
+                roi.area =cv2.countNonZero(mask)
+                roi.pix = f'{round(100*roi.area/self.imgMatrix.size,2)}%'
 
-            #     self.listEchoTime
-            #     self.imageMean
-
-            #     # matLog = np.log(analysis)
-            #     # arrSum = matLog.sum(axis=1)
-            #     # arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
+                self.listEchoTime
+                analysis = np.ndarray((0,))
+                for i in range(len(self.dicomList)):
+                    mean = cv2.meanStdDev(self.imageMean[:,:,i],mask=mask)
+                    analysis = np.concatenate((analysis,mean[0][0]))
                 
-            #     echoTimeSum = -sum(self.listEchoTime) 
-            #     self.echoTimeArr = np.array(self.listEchoTime) 
-            #     echoTimeMul = np.matmul(np.transpose(self.echoTimeArr),self.echoTimeArr) 
-            #     arrB = np.stack((arrSum,arrLogEchoTime))
-            #     A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
-            #     invA = np.linalg.inv(A)
-            #     #P = np.apply_along_axis(lambda x:np.matmul(invA,x),0,arrB)
-            #     P = np.matmul(invA,arrB)
+                matLog = np.log(analysis)
+                arrSum = matLog.sum(axis=0)
+                arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
                 
-            #     P[np.isnan(P)] = 0
+                echoTimeSum = -sum(self.listEchoTime) 
+                self.echoTimeArr = np.array(self.listEchoTime) 
+                roi.time = np.arange(self.listEchoTime[0]*1000,self.listEchoTime[-1]*1000,1)
+                echoTimeMul = np.matmul(np.transpose(self.echoTimeArr),self.echoTimeArr) 
+                arrB = np.stack((arrSum,arrLogEchoTime))
+                A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
+                invA = np.linalg.inv(A)
+                P = np.matmul(invA,arrB)
+                roi.decay = np.exp(P[0])*np.exp(-roi.time*(P[1]/1000))
 
-            #     self.imgMatrix = np.transpose(P)[:,[1]]
-            #     self.imgMatrix = 1000/self.imgMatrix
-            #     self.imgMatrix[self.imgMatrix == inf] = 0
-            #         # TE = pmT2Obj.TE;
-            #         # TEg = 1000*TE;
-            #         # ndados = pmT2Obj.ndados;
-            #         # options = optimset('Algorithm','levenberg-marquardt','Display','off','Jacobian','on');
-            #         # self.imageMean = pmT2Obj.self.imageMean;
-            #         # x=TEg(1):1:TEg(size(self.imageMean,3));
-                    
-            #         # a=[];
-            #         # for cont=1:size(self.imageMean,3)
-            #         #     layer=self.imageMean(:,:,cont);
-            #         #     a=[a mean(layer(pmMask))];
-            #         # end
-            #         # [R2ij,S0ij,OffSetij]=fit_exp_offset(TE(1:end)',a(1:end)',ndados,options);
-            #                 # function [R2star S0, OFSET]=fit_exp_offset(t,rel,ndados,options)
-            #                 # a= -sum(t);
-            #                 # A=[ndados a;a t'*t];
-            #                 # b=[sum(log(rel)); -t'*log(rel)];
-            #                 # P=A\b
-            #                 # P(1)=exp(P(1));
-            #                 # S0=P(1);
-            #                 # R2star=P(2);
-            #         # T2test=1000/R2ij;
-            #         # y=S0ij*exp(-x/T2test)+OffSetij;
-
-
-            #     roi.definedInfo = True
-        #cvEcho = np.dstack([cvEcho, alpha])
-        self.resultImage = Image.fromarray(cvEcho)  
+                plt.plot(roi.time,roi.decay,c='red')
+                plt.scatter(self.echoTimeArr*1000,analysis,s=10)
+                fig = plt.gcf()
+                fig.set_size_inches(9, 7)
+                roi.decayImgFile = f"{os.path.dirname(__file__)}\\imgs\\decay-roi{roi.elmId}.png"
+                plt.savefig(roi.decayImgFile, dpi=100 ,bbox_inches = 'tight',pad_inches = 0.1,transparent=True)
+                plt.close()
+                roi.definedInfo = True
+        
+                self.resultImage = Image.fromarray(cvEcho)  

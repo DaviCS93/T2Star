@@ -52,6 +52,7 @@ def releaseRoi(env,event):
     event.widget.unbind("<ButtonPress-1>")
     event.widget.unbind("<B1-Motion>")
     event.widget.unbind("<ButtonRelease-1>")
+    env.historyListbox.selection_set(env.canvasElemList[-1].elmId)
     env.updateImage()
     
 def startDraw(event,env,thickness,color):

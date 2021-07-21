@@ -30,6 +30,8 @@ class MainForm():
         self.examDict = {}
         # Lista de threads para carregar os exames
         self.loaderList = []
+        self.scaleImageGray = None
+        self.scaleImage = None
         self.envActive = self.job = None
         self.setForm()
         self.root.mainloop()
@@ -43,6 +45,7 @@ class MainForm():
         self.setMainFrame()
         self.setEditMenu()
         self.setPlotScales()
+
         self.setNotebook()
         self.setTopMenu()
 
@@ -87,25 +90,43 @@ class MainForm():
         self.scalesMenu = ttk.Frame(self.editMenu)
         self.scalesMenu.grid(row=10,column=0,columnspan=4,sticky=tk.SW)
         # Setting values for the scales (Max Min and Red Scale)
-        self.scaleMaxValue = tk.IntVar(self.scalesMenu)
-        self.scaleMinValue = tk.IntVar(self.scalesMenu)
+        self.scalesColor = tk.LabelFrame(self.scalesMenu)
+        self.scaleMaxValueColor = tk.IntVar(self.scalesMenu)
+        self.scaleMinValueColor = tk.IntVar(self.scalesMenu)
+        self.scaleRedValue = tk.IntVar(self.scalesMenu)
+        self.scaleMaxValueGray = tk.IntVar(self.scalesMenu)
+        self.scaleMinValueGray = tk.IntVar(self.scalesMenu)
         self.scaleRedValue = tk.IntVar(self.scalesMenu)
         self.scaleRedValue.set(50)
         # Setting max and min values for both max and min scales, and setting red to keep between them
 
 
-        self.scaleMaxC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleMaxValue,label='Upper value')
-        self.scaleMaxC.grid(row=0,column=0,columnspan=4,sticky='SWE')
-        self.scaleMinC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleMinValue,label='Lower value')
-        self.scaleMinC.grid(row=1,column=0,columnspan=4,sticky='SWE')
-        self.scaleRed = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor(),orient=tk.HORIZONTAL,variable=self.scaleRedValue,label='Red Value')
-        self.scaleRed.grid(row=2,column=0,columnspan=4,sticky='SWE')
+        self.scaleMaxC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor())
+        self.scaleMaxC.grid(row=0,column=0,sticky='SWE')
+        self.scaleMaxC.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueColor,label='Max value')
+        self.scaleMinC = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor())
+        self.scaleMinC.grid(row=1,column=0,sticky='SWE')
+        self.scaleMinC.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueColor,label='Min value')
+        self.scaleRed = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotColor())
+        self.scaleRed.configure(orient=tk.HORIZONTAL,variable=self.scaleRedValue,label='Red position')
+        self.scaleRed.grid(row=2,column=0,sticky='SWE')
         self.scaleRef = tk.Canvas(master=self.scalesMenu)
-        self.scaleRef.grid(row=3,column=0,columnspan=4,sticky='SWE')  
-        self.configureScales(200,40)
-        self.scalesMenu.grid_remove()
+        self.scaleRef.grid(row=3,column=0,sticky='SWE')  
+        
+        self.scaleMaxG = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotGray())
+        self.scaleMaxG.grid(row=4,column=0,sticky='SWE')
+        self.scaleMaxG.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueGray,label='Upper value')
+        self.scaleMaxG.configure(to=255,from_=128)
+        self.scaleMinG = tk.Scale(self.scalesMenu,command=lambda x:self.checkPlotGray())
+        self.scaleMinG.grid(row=5,column=0,sticky='SWE')
+        self.scaleMinG.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueGray,label='Lower value')
+        self.scaleMinG.configure(to=127,from_=0)
+        self.scaleGray = tk.Canvas(master=self.scalesMenu)
+        self.scaleGray.grid(row=6,column=0,sticky='SWE')
+        self.scaleImageGray = self.printScale(f'{path.dirname(__file__)}\\imgs\\scalegray.png','sgray',self.scaleGray)
+        self.scaleImage  = self.printScale(f'{path.dirname(__file__)}\\imgs\\scale.png','scolor',self.scaleRef)
 
-    def configureScales(self,minRoof=None,maxFloor=None):
+    def configureColorScale(self,minRoof=None,maxFloor=None):
         '''
         The ideia here is to set maximum and minimum values for the scales following the logic:
         
@@ -119,32 +140,44 @@ class MainForm():
         self.plotRoof = 250
         self.plotFloor = 0
         if minRoof == None:
-            minRoof = self.scaleMaxValue.get()
+            minRoof = self.scaleMaxValueColor.get()
         if maxFloor == None:
-            maxFloor =self.scaleMinValue.get()
+            maxFloor =self.scaleMinValueColor.get()
         self.scaleMaxC.configure(to=self.plotRoof,from_=maxFloor+20,tickinterval=(self.plotRoof-maxFloor)/10)
         self.scaleMinC.configure(to=minRoof-20,from_=self.plotFloor,tickinterval=(minRoof-self.plotFloor)/10)
-        self.printScaleImage()
-        
-    def printScaleImage(self):
-        scale = Image.open(f'{path.dirname(__file__)}\\imgs\\scale.png')
-        resizedScale = scale.resize((self.scaleRef.winfo_width(),self.scaleMaxC.winfo_height())) 
-        self.scaleImage = ImageTk.PhotoImage(image=resizedScale,size=resizedScale.size)
-        self.scaleRef.create_image(0,0,anchor=tk.NW,image=self.scaleImage,tags='scaleImage')
-        self.scaleRef.update()            
+
+    def printScale(self,imgFile,imgType,canvas):
+        scale = Image.open(imgFile)
+        canvas.update()    
+        resizedScale = scale.resize((canvas.master.winfo_width(),20)) 
+        img = ImageTk.PhotoImage(image=resizedScale,size=resizedScale.size)
+        canvas.create_image(0,0,anchor=tk.NW,image=img,tags=imgType)
+        canvas.update()    
+        return img        
 
     def checkPlotColor(self):
         if self.job:
             self.root.after_cancel(self.job)
         if self.envActive:
-            ma,mi,re = self.scaleMaxValue.get(),self.scaleMinValue.get(),self.scaleRedValue.get()
+            ma,mi,re = self.scaleMaxValueColor.get(),self.scaleMinValueColor.get(),self.scaleRedValue.get()
             if (self.envActive.imgObj.maxColor != ma 
                 or self.envActive.imgObj.minColor != mi
                 or self.envActive.imgObj.redScale != re):
                 def changePlotColor(self,ma,mi,re):
                     self.envActive.updateColor(re,mi,ma)
-                    self.configureScales(ma,mi)
+                    self.configureColorScale(ma,mi)
                 self.job = self.root.after(500,changePlotColor,self,ma,mi,re)              
+
+    def checkPlotGray(self):
+        if self.job:
+            self.root.after_cancel(self.job)
+        if self.envActive:
+            ma,mi = self.scaleMaxValueGray.get(),self.scaleMinValueGray.get()
+            if (self.envActive.imgObj.maxColor != ma 
+                or self.envActive.imgObj.minColor != mi):
+                def changePlotGray(self,ma,mi):
+                    self.envActive.updateGray(mi,ma)
+                self.job = self.root.after(500,changePlotGray,self,ma,mi)              
 
     def setColor(self,c):
         if self.envActive:
@@ -163,7 +196,8 @@ class MainForm():
         self.ttkMenubar['menu'] = self.menubar
         self.fileMenu = tk.Menu(self.menubar, tearoff=False)
         self.menubar.add_cascade(label=lblsTop.FILE, underline=0, menu=self.fileMenu)
-        self.fileMenu.add_command(label=lblsTop.LOADEXAM, underline=0,  compound=tk.LEFT,command=self.loadExam)
+        self.fileMenu.add_command(label=lblsTop.LOADEXAMNORMAL, underline=0,  compound=tk.LEFT,command=self.loadExamNormal)
+        self.fileMenu.add_command(label=lblsTop.LOADEXAMBATCH, underline=0,  compound=tk.LEFT,command=self.loadExamBatch)
         self.root.config(menu = self.menubar) 
 
     def loader(self,examID,dicomList):
@@ -173,7 +207,19 @@ class MainForm():
         self.envActive = Environment(examID,dicomList)
         self.loadImageNotebook()
 
-    def loadExam(self):
+    def loadExamBatch(self):
+        """
+        Carrega os exames através do handler
+        """
+        examDict = dcmHandler.openDicomFiles()
+        
+        for examID,dicomList in examDict.items():
+                self.loader(examID,dicomList)
+                # t = Thread(target=self.loader,args=(img,))
+                # loaderList.append(t)
+                # t.start()
+
+    def loadExamNormal(self):
         """
         Carrega os exames através do handler
         """
@@ -185,48 +231,51 @@ class MainForm():
                 # t.start()
   
     def onEnvChange(self,event):
-        #print(self.notebook.index('current'))
         self.job = None
         self.envActive = self.envDict[self.notebook.index(self.notebook.select())]
-        self.scaleMaxValue.set(self.envActive.imgObj.maxColor)
-        self.scaleMinValue.set(self.envActive.imgObj.minColor)
-        self.scaleRedValue.set(self.envActive.imgObj.redScale)
-        self.scalesMenu.grid()
-        self.configureScales()
-        self.clearCursor()
+        if self.envActive:
+            self.scaleMaxValueColor.set(self.envActive.imgObj.maxColor)
+            self.scaleMinValueColor.set(self.envActive.imgObj.minColor)
+            self.scaleMaxValueGray.set(self.envActive.imgObj.maxGray)
+            self.scaleMinValueGray.set(self.envActive.imgObj.minGray)
+            self.scaleRedValue.set(self.envActive.imgObj.redScale)
+            self.scalesMenu.grid()
+            self.configureColorScale(self.envActive.imgObj.maxColor,self.envActive.imgObj.minColor)
+            self.clearCursor()
 
     def cbRoi(self,shape):
         self.clearCursor()
-        #cnv = self.envActive.resultCanvas
-        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startRoi(
-            env=self.envActive,event=event,shape=shape))
-        self.envActive.resultCanvas.bind("<B1-Motion>", lambda event: edit.onMoveRoi(
-            env=self.envActive,event=event))
-        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseRoi(
-            env=self.envActive,event=event))
+        if self.envActive:
+            self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startRoi(
+                env=self.envActive,event=event,shape=shape))
+            self.envActive.resultCanvas.bind("<B1-Motion>", lambda event: edit.onMoveRoi(
+                env=self.envActive,event=event))
+            self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseRoi(
+                env=self.envActive,event=event))
 
     def cbDraw(self):
         self.clearCursor()
-        self.drawColorsMenu.grid()
-        #cnv =self.envActive.resultCanvas
-        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startDraw(
-            event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
-        self.envActive.resultCanvas.bind("<B1-Motion>", lambda event:edit.onMoveDraw(
-            event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
-        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(
-            env=self.envActive,event=event))
+        if self.envActive:
+            self.drawColorsMenu.grid()
+            #cnv =self.envActive.resultCanvas
+            self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startDraw(
+                event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
+            self.envActive.resultCanvas.bind("<B1-Motion>", lambda event:edit.onMoveDraw(
+                event=event,env=self.envActive,thickness=self.drawThickness.get(),color=self.color))
+            self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.releaseDraw(
+                env=self.envActive,event=event))
 
     def cbZoom(self,zoomIn):
         self.clearCursor()
-        #cnv =self.envActive.resultCanvas
-        self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.zoom(
-            env=self.envActive,zoomIn=zoomIn,event=event))
+        if self.envActive:
+            self.envActive.resultCanvas.bind("<ButtonRelease-1>", lambda event: edit.zoom(
+                env=self.envActive,zoomIn=zoomIn,event=event))
 
     def cbTag(self):
         self.clearCursor()
-        #cnv =self.envActive.resultCanvas
-        self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startTag(
-            env=self.envActive,event=event))
+        if self.envActive:
+            self.envActive.resultCanvas.bind("<ButtonPress-1>", lambda event: edit.startTag(
+                env=self.envActive,event=event))
         
     def loadImageNotebook(self):
         """
