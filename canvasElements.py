@@ -5,6 +5,7 @@ class canvasElement(ABC):
 
     def __init__(self):
         self.elmId = ''
+        self.canvasId = ''
         while self.elmId == '' or self.elmId in self.elmIds:
             self.elmId = str(Random().random()).split('.')[-1]
         self.elmIds.append(self.elmId)    
@@ -36,6 +37,7 @@ class ROI(canvasElement):
         self.mse = 0.0
         self.decay = None
         self.time = None
+        self.points = []
 
     def setStart(self,x,y):
         self.x1 = x
@@ -77,14 +79,16 @@ class DrawnLines(canvasElement):
         return f'{self.color.upper()}({self.dots[0][0]},{self.dots[0][1]})'
 
 class Tag(canvasElement):
-    def __init__(self,x,y,text):
+    def __init__(self,x,y,text,index):
         super().__init__()
+        self.canvasIndex = index
+        self.tagId = ''
         self.x = x
         self.y = y
         self.text = text
 
     def getInfo(self):
         editedText = ' '.join(self.text.replace('\n',' ').split())
-        return f'{editedText}({self.x},{self.y})'
+        return f'{self.canvasIndex}-{editedText}({self.x},{self.y})'
      
     

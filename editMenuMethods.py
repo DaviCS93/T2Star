@@ -1,5 +1,7 @@
 import tkinter as tk
 from math import fabs
+
+from matplotlib.pyplot import ylabel
 from decorators import timer
 from canvasElements import ROI, DrawnLines, canvasElement,Tag
 from shape import Shape
@@ -13,12 +15,25 @@ def startRoi(env,event,shape):
         env.activeROI = event.widget.create_rectangle(event.x,event.y,event.x,event.y, outline='black',width=3)
     elif shape == Shape.CIRCLE:
         env.activeROI = event.widget.create_oval(event.x,event.y,event.x,event.y, outline='black',width=3)
- 
+    elif shape == Shape.FREE:
+        newRoi.points.append((event.x,event.y))
+        
 def onMoveRoi(env,event):
     movingRoi = env.canvasElemList[-1]
     movingRoi.x2,movingRoi.y2 = (event.x, event.y)
     # expand rectangle as you drag the mouse
-    if movingRoi.shape == Shape.CIRCLE:
+    if movingRoi.shape == Shape.FREE:
+        movingRoi.points.append((event.x,event.y))
+        coords = [x for x in movingRoi.points[-2:]]
+        xPrev,yPrev=coords[-1][0],coords[-1][1]
+        xDiff,yDiff = event.x-xPrev,event.y - yPrev
+        if abs(xDiff)>30 or abs(yDiff)>30:
+            coords.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
+        movingRoi.points.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
+        flatCoods = list(sum(coords, ()))
+        event.widget.create_line(event.x,event.y,flatCoods,fill='black',width=3,smooth=True)
+        movingRoi.points.append((event.x,event.y))
+    elif movingRoi.shape == Shape.CIRCLE:
         xDiff = movingRoi.x2-movingRoi.x1
         yDiff = movingRoi.y1-movingRoi.y2
         if fabs(xDiff)>fabs(yDiff):
@@ -31,11 +46,12 @@ def onMoveRoi(env,event):
                 movingRoi.y2 = movingRoi.y1 - xDiff if yDiff < 0 else movingRoi.y1 + xDiff
             else:
                 movingRoi.y2 = movingRoi.y1 + xDiff if yDiff < 0 else movingRoi.y1 - xDiff
-    event.widget.coords(env.activeROI,
-                        movingRoi.x1,
-                        movingRoi.y1,
-                        movingRoi.x2,
-                        movingRoi.y2)
+    if not movingRoi.shape == Shape.FREE:
+        event.widget.coords(env.activeROI,
+                            movingRoi.x1,
+                            movingRoi.y1,
+                            movingRoi.x2,
+                            movingRoi.y2)
 
 @timer
 def releaseRoi(env,event):
@@ -43,9 +59,13 @@ def releaseRoi(env,event):
     event.widget.delete(env.activeROI)
     # Desconsidera o zoom para aplicar a ROI
     roi =  env.canvasElemList[-1]
-    roi.x1,roi.y1,roi.x2,roi.y2 = map(
-        lambda c: int(c/env.imgObj.activeZoom),
-        (roi.x1,roi.y1,roi.x2,roi.y2))
+    if roi.shape == Shape.FREE:
+        for point in roi.points:
+            point = list(map(lambda c: int(c/env.imgObj.activeZoom),point))
+    else:
+        roi.x1,roi.y1,roi.x2,roi.y2 = map(
+            lambda c: int(c/env.imgObj.activeZoom),
+            (roi.x1,roi.y1,roi.x2,roi.y2))
     env.imgObj.replaceRoi(env.canvasElemList)
     # Deleta imagem atual do exame
     event.widget.delete("all")
@@ -58,7 +78,6 @@ def releaseRoi(env,event):
 def startDraw(event,env,thickness,color):
     x1, y1 = map(lambda x: x + 4.5*thickness,(event.x,event.y))
     x2, y2 = map(lambda x: x - 4.5*thickness,(event.x,event.y))
-    event.widget.create_oval(x1,y1,x2,y2, outline=color,fill=color,width=1)
     d = DrawnLines(event.x,event.y,thickness,color,env.imgObj.activeZoom)
     env.addCanvasElement(d)
 
@@ -66,7 +85,6 @@ def onMoveDraw(event,env,thickness,color):
     coords = [x for x in env.canvasElemList[-1].dots[-2:]]
     xPrev,yPrev=coords[-1][0],coords[-1][1]
     xDiff,yDiff = event.x-xPrev,event.y - yPrev
-    #TODO bug em caso de curva acelerada
     if abs(xDiff)>30 or abs(yDiff)>30:
         coords.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
         env.canvasElemList[-1].addCoord(xPrev+(xDiff/2),yPrev+(yDiff/2))
@@ -103,7 +121,13 @@ def startTag(event,env):
     wrapper.grab_set()
     
 def releaseTag(popup,text,x,y,canvas,env):
-    canvas.create_text(x,y,font="Arial 12 bold",text=text)
-    t = Tag(x,y,text)
+    # + x and - y to shift the pin to right and up, to match the click with the point of the pin 
+    #canvas.create_text(x,y,font="Arial 12 bold",text=text)
+    index = len([x for x in env.canvasElemList if type(x) == Tag])
+    t = Tag(x,y,text,index+1)
     env.addCanvasElement(t)
+    env.createPin(t,x,y)
+    canvas.unbind("<ButtonPress-1>")
+    canvas.unbind("<B1-Motion>")
+    canvas.unbind("<ButtonRelease-1>")
     popup.destroy()

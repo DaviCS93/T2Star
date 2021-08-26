@@ -1,13 +1,11 @@
 import warnings 
 import os
-import json
-from scipy.signal.ltisys import impulse2
 from decorators import timer
 import matplotlib.pyplot as plt
 import matplotlib as matplot
 import numpy as np
 import cv2
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import Normalize,ListedColormap
 from scipy.signal import medfilt2d
 from PIL import Image
 from shape import Shape
@@ -19,18 +17,16 @@ class imgObject():
     docstring
     """
      
-    def __init__(self,dicomList):
+    def __init__(self,dicomList,examName):
+        self.examName = examName
         self.imgMatrix = None
         self.imgMSE = None
         self.maxColor = 200
         self.minColor = 40
         self.maxGray = 200
         self.minGray = 0
-        self.redScale = 50
         self.listROI = []
         self.listEchoTime = []
-        self.color = self.defineJet()
-        self.gray = self.defineGray()
         self.figure = plt.figure(figsize=(6, 6),frameon=False)
         self.dicomList = dicomList
         self.grayName = ""
@@ -39,8 +35,10 @@ class imgObject():
         self.imgEcho = None
         self.imgStar = None
         self.imgCanny = None
-        self.resultImage = None
+        self.resultRoiImage = None
+        self.resultColorImage = None
         self.size = dicomList[0].pixel_array.shape
+        self.norm = Normalize(vmin=0,vmax=255)
         # Zoom ativo
         self.activeZoom = 1
         for ds in dicomList:
@@ -48,55 +46,13 @@ class imgObject():
         # Cria as imagens no que é carregado os arquivos
         self.createFigure()
         self.plotFigure()
-
-    @timer    
-    def defineGray(self):
-        """
-        docstring
-        """
-        gray = matplot.cm.get_cmap(name='gray')
-        gradient = np.linspace(0, 1, 180)
-        gradient = np.vstack((gradient, gradient))
-        fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
-        ax.imshow(gradient, aspect='auto', cmap=gray)
-        ax.set_axis_off()
-        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scalegray.png",bbox_inches = 'tight', dpi=200)
-        plt.close()
-        return gray
-        
-    @timer    
-    def defineJet(self):
-        """
-        docstring
-        """
-        redScale=self.redScale/100
-        jet = matplot.cm.get_cmap(name='jet')
-        jet_arr = jet(np.linspace(0, 1,128))
-        jet_reverse = matplot.cm.get_cmap(name='jet_r')
-        jet_reverse_arr = jet_reverse(np.linspace(0, 1, 128))
-        if redScale >0.5:
-            jet_reverse_arr=jet_reverse_arr[1:-1-(int((redScale-0.5)*256)),:] #deletar slice (redScale-0.5)*256
-        elif redScale <0.5:
-            jet_arr=jet_arr[(int((redScale*(-256)+128))):len(jet_arr),:] #deletar slice redScale*256
-        jet_combined_arr = np.concatenate((jet_arr,jet_reverse_arr))
-        jet_combined = ListedColormap(jet_combined_arr)
-        gradient = np.linspace(0, 1, 180)
-        gradient = np.vstack((gradient, gradient))
-        fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
-        ax.imshow(gradient, aspect='auto', cmap=jet_combined)
-        ax.set_axis_off()
-        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scale.png",bbox_inches = 'tight', dpi=200)
-        plt.close()
-        return jet_combined
         
     @timer 
     def createFigure(self):
         """
         docstring
-        """
-        #self.imageMean = []   
+        """  
         self.imageMean = np.zeros((*self.size,len(self.dicomList)))
-        #analysis = []
         analysis = np.zeros((*self.size,len(self.dicomList)))
         
         warnings.filterwarnings('ignore')
@@ -134,49 +90,53 @@ class imgObject():
         arrB = np.stack((arrSum,arrLogEchoTime))
         A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
         invA = np.linalg.inv(A)
-        #P = np.apply_along_axis(lambda x:np.matmul(invA,x),0,arrB)
         P = np.matmul(invA,arrB)
         
-
         self.imgMatrix = np.transpose(P)[:,[1]]
         self.imgMatrix = np.reshape(self.imgMatrix,self.size)
+        tempMatrix = self.imgMatrix
         self.imgMatrix = 1000/self.imgMatrix
-        self.imgMatrix[np.isnan(self.imgMatrix)] = inf
-        self.imgMatrix[self.imgMatrix == inf] = 255
-        self.imgMatrix[self.imgMatrix > 255] = 255
-        self.imgMatrix[self.imgMatrix < 0] = 0
+        clearInf = self.imgMatrix[self.imgMatrix!=inf]
+        tempMatrix[tempMatrix==inf] = np.max(clearInf)
         # Reshape T2 for the size needed
         self.s0 = np.reshape(np.transpose(P)[:,[0]],self.size)
         ex = np.exp(-np.reshape(self.echoTimeArr,(self.echoTimeArr.shape[0],1)))
-        yTemp = np.matmul(self.imgMatrix,np.exp(self.s0)) #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
+        yTemp = np.matmul(tempMatrix,self.s0) #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
+        yTemp = tempMatrix*self.s0 #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
         yTemp = np.reshape(yTemp,(self.size[0]*self.size[1],1))
         yPred = np.matmul(yTemp,np.transpose(ex))
-        sse = np.sqrt(analysis-yPred).sum(axis=1)
+        print(np.max(analysis), np.min(analysis))
+        print(np.max(yPred), np.min(yPred))
+        sse = np.square(analysis-yPred).sum(axis=1)
         self.imgMSE = sse/len(self.dicomList)
         self.imgMSE = np.reshape(self.imgMSE,self.size)
     
     @timer 
     def plotFigure(self):
-        # Deletar imagens da pasta antes
+        # Deletar imagens da pasta antes-
         if os.path.isfile(self.colorName):
             map(os.remove,(self.colorName,self.grayName))
-        self.colorName = f'{os.path.dirname(__file__)}\\imgs\\color{self.dicomList[0].StudyID}.png'
-        self.grayName = f'{os.path.dirname(__file__)}\\imgs\\gray{self.dicomList[0].StudyID}.png'
+        self.colorName = f'{os.path.dirname(__file__)}\\imgs\\color{self.examName}.png'
+        self.grayName = f'{os.path.dirname(__file__)}\\imgs\\gray{self.examName}.png'
         #self.exportFigure(self.dicomList[0].pixel_array,self.grayName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
-        imgTemp = np.copy(self.imgMatrix)
-        imgTemp[imgTemp>self.maxGray] = self.maxGray
-        imgTemp[imgTemp<self.minGray] = self.minGray
-        self.exportFigure(imgTemp,self.grayName,cmap=self.gray, plt_show=False)
-        self.exportFigure(self.imgMatrix, self.colorName,cmap=self.color, vmin=self.minColor, vmax=self.maxColor, plt_show=False)
+        self.exportFigure(self.imgMatrix,self.grayName,cmap='gray',vmax=self.maxGray,vmin=self.minGray,plt_show=False)
+        self.exportFigure(self.imgMatrix, self.colorName,cmap='jet',vmax=self.maxColor,vmin=self.minColor, plt_show=False)
+        #self.exportFigure(self.imgMatrix, self.colorName,cmap='jet', vmin=self.minColor, vmax=self.maxColor, plt_show=False)
         # self.imgCanny = cv2.Canny(imgTemp,40,150)
         # self.cannyName = f'{os.path.dirname(__file__)}\\imgs\\canny{self.dicomList[0].StudyID}.png'
         # self.exportFigure(self.imgCanny,self.cannyName,cmap=matplot.cm.get_cmap('gray_r'), plt_show=False)
         self.imgEcho = Image.open(self.grayName)
         self.imgStar = Image.open(self.colorName)
         # self.imgCanny = Image.open(self.cannyName)
-        self.resultImage = self.removeTransparency(self.imgEcho)
+        self.resultColorImage = self.removeTransparency(self.imgStar)
+        self.resultRoiImage = self.removeTransparency(self.imgEcho)  
         # self.resultImage = self.imgCanny
-        pass
+
+    @timer
+    def getDicomImage(self,matrix):
+        imgPath = f'{os.path.dirname(__file__)}\\imgs\\dicom{self.examName}.png'
+        self.exportFigure(matrix,imgPath,cmap='gray',vmax=255,vmin=0,plt_show=False)
+        return Image.open(imgPath)
 
     @timer 
     def removeTransparency(self,im):
@@ -189,14 +149,12 @@ class imgObject():
             return im
     
     @timer 
-    def setColors(self,max,min,red):
+    def setColors(self,max,min):
         """
         docstring
         """
         self.maxColor = max
         self.minColor = min
-        self.redScale = red
-        self.color = self.defineJet()
 
     @timer 
     def setGray(self,max,min):
@@ -205,7 +163,6 @@ class imgObject():
         """
         self.maxGray = max
         self.minGray = min
-        #self.gray = self.defineGray()
 
     @timer 
     def exportFigure(self, matrix, f_name, cmap, dpi=200, resize_fact=1, plt_show=False, vmin=None, vmax=None):
@@ -223,7 +180,8 @@ class imgObject():
         ax.set_facecolor('navy')
         ax.set_axis_off()
         fig.add_axes(ax)
-        ax.imshow(matrix,cmap=cmap, vmin=vmin, vmax=vmax)
+        ax.imshow(matrix,cmap=cmap,norm=self.norm,vmin=vmin, vmax=vmax)#,
+        #ax.imshow(matrix,cmap=cmap)
         plt.savefig(f_name, dpi=(dpi * resize_fact))
         if plt_show:
             plt.show()
@@ -239,9 +197,12 @@ class imgObject():
             if not type(roi) == ROI:
                 continue
             mask = np.zeros(self.size, np.uint8)
+            if roi.shape == Shape.FREE:
+                points = np.array(roi.points,np.int32)
+                mask = cv2.fillPoly(mask,[points],(255, 255, 255)) # pylint: disable=maybe-no-member
             if roi.shape == Shape.RECTANGLE:
                 mask = cv2.rectangle(mask,roi.start,roi.end,(255, 255, 255), -1) # pylint: disable=maybe-no-member
-            elif roi.shape == Shape.CIRCLE:
+            if roi.shape == Shape.CIRCLE:
                 #Para o circulo precisamos do centro e do raio
                 #Então temos que fazer alguns calculos
                 #Para o centro fazemos o canto menos o outro para conseguir o lado
@@ -260,9 +221,13 @@ class imgObject():
                 roi.mean,roi.std = cv2.meanStdDev(self.imgMatrix,mask=mask)
                 roi.mean,roi.std = round(roi.mean[0][0], 2),round(roi.std[0][0], 2)
                 roi.min,roi.max,_,_  = cv2.minMaxLoc(self.imgMatrix,mask)
+                roi.min = round(roi.min,2)
+                roi.max = round(roi.max,2)
                 roi.area =cv2.countNonZero(mask)
                 roi.pix = f'{round(100*roi.area/self.imgMatrix.size,2)}%'
-
+                roi.mse = np.sqrt(cv2.meanStdDev(self.imgMSE,mask=mask)[0][0][0])
+                roi.mse = round(roi.mse,2)
+                #roi.mse = sqrt(mean(handles.ims{handles.currIm}.MSE(mask)))
                 self.listEchoTime
                 analysis = np.ndarray((0,))
                 for i in range(len(self.dicomList)):
@@ -292,4 +257,28 @@ class imgObject():
                 plt.close()
                 roi.definedInfo = True
         
-                self.resultImage = Image.fromarray(cvEcho)  
+        self.resultRoiImage = Image.fromarray(cvEcho)  
+
+    @timer
+    def printColorScale(self,clock):
+        jet = matplot.cm.get_cmap(name='jet_r')
+        jet_arr = jet(np.linspace(0, 1,255))
+        #jet_arr=jet_arr[self.minColor:self.maxColor,:] #deletar slice (redScale-0.5)*256
+        jet_cmap = ListedColormap(jet_arr)
+        gradient = np.linspace(0, 1, 255)
+        gradient = np.vstack((gradient, gradient))
+        fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
+        ax.imshow(gradient, aspect='auto', cmap=jet_cmap)
+        ax.set_axis_off()
+        scale = f"{os.path.dirname(__file__)}\\imgs\\scale{self.examName}.png"
+        plt.savefig(scale,bbox_inches = 'tight', dpi=200)
+        plt.close()
+        if clock:
+            return Image.fromarray(cv2.rotate(cv2.imread(scale),rotateCode=cv2.ROTATE_90_COUNTERCLOCKWISE))
+        else:
+            return Image.fromarray(cv2.rotate(cv2.imread(scale),rotateCode=cv2.ROTATE_90_CLOCKWISE))
+
+if __name__=="__main__":
+    img = imgObject(None,"test")
+    img.defineGray()
+    img.defineJet()

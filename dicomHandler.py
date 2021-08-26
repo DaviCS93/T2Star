@@ -2,26 +2,40 @@ import os
 import time
 import pydicom
 from tkinter import filedialog as dialog
+import tkinter as tk
 from imgObject import imgObject
+from math import floor
+import numpy as np
 
 # Handler responsável por abrir os arquivos dicom
 # e extrair as informações + imagens
 
-def openDicomFiles():
+def openDicomFiles(files,examName,quantity=None):
     """
     docstring
     """
     # Dicionário de exames geral (ExamID - lista de arquivos)
     examFileDict = {}   
     # Lista de exames com o mesmo ID
-    files = dialog.askopenfilenames()
-    for f in files:
-        dcm = pydicom.dcmread(f)
-        if dcm.StudyID in examFileDict.keys():
-            examFileDict[dcm.StudyID].append(dcm)
-        else:
-            examFileDict[dcm.StudyID] = [dcm]
+    if quantity:
+        for index,f in enumerate(files):
+            key = ''.join((examName,str(floor(index/quantity))))
+            dcm = pydicom.dcmread(f)
+            if not key in examFileDict.keys():
+                examFileDict[key] = [dcm]
+            else: 
+                examFileDict[key].append(dcm)
+    else:
+        for f in files:
+            dcm = pydicom.dcmread(f)
+            if not examName in examFileDict.keys():
+                examFileDict[examName] = [dcm]
+            else: 
+                examFileDict[examName].append(dcm)
     return examFileDict
 
-
-    
+def exportDicom(img,dcm):
+    #dcm.pixel_array = img
+    img = np.array(img,dtype=np.uint16)
+    dcm.PixelData = img.tobytes()
+    dcm.save_as("testing.dcm")

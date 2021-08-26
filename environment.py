@@ -1,9 +1,10 @@
-from os import remove
+import re
+import os
 from tkinter.constants import X,END
 from canvasElements import DrawnLines,ROI,Tag
 import tkinter as tk
 from tkinter import ttk
-from PIL import ImageTk
+from PIL import ImageTk,ImageGrab
 from enumInterface import Texts as txt
 from imgObject import imgObject as imgObj
 from threading import Thread
@@ -13,17 +14,17 @@ from PIL import ImageTk,Image
 class Environment:
 
     def __init__(self,examID,dicomList):
+        self.examCanvasId = ''
         # ID do exame
         self.examID = examID
         # Obj de imagem relacionado a esse ambiente (aba)
-        self.imgObj = imgObj(dicomList)
-        # Lista de Rois aplicadas na imagem
-        #self.roiList = [] #ROI()
-        # Lista de Draws aplicadas na imagem
-        #self.drawList = [] 
+        self.imgObj = imgObj(dicomList,examID)
+        self.showColor = True
         self.canvasElemList = []
         # Canvas da imagem (para poder desenhar as roi's)
         self.resultCanvas = None
+        
+        self.dicomExamsCanvas = None
         # Frame de apresentação da imagem do exame
         self.examFrame = None
         # Imagem printada no final
@@ -32,6 +33,7 @@ class Environment:
         # Taxa de zoom
         self.zoomFactor = 1.2
         self.historyListItems = tk.StringVar()
+        self.canvasPic = f'canvas{examID}.png'
 
     @timer
     def updateImage(self):
@@ -39,12 +41,13 @@ class Environment:
         self.resultCanvas.delete("all")
         # Aplica o zoom sobre uma copia da imagem logo antes de apresentar,
         # para evitar distorções na imagem original
-        zoomedImage = self.imgObj.resultImage.resize(
-            (int(self.imgObj.resultImage.width*self.imgObj.activeZoom),
-            int(self.imgObj.resultImage.height*self.imgObj.activeZoom)))
+        resultImage = self.imgObj.resultColorImage if self.showColor else self.imgObj.resultRoiImage
+        zoomedImage = resultImage.resize(
+            (int(resultImage.width*self.imgObj.activeZoom),
+            int(resultImage.height*self.imgObj.activeZoom)))
         # Print final e atualização do canvas
         self.printImage = ImageTk.PhotoImage(image=zoomedImage,size=zoomedImage.size)
-        self.resultCanvas.create_image(0,0,anchor=tk.NW,image=self.printImage,tags='printImage')
+        self.examCanvasId = self.resultCanvas.create_image(0,0,anchor=tk.NW,image=self.printImage,tags='printImage')
         self.resultCanvas.configure(width=zoomedImage.width,height=zoomedImage.height)
         self.reDraw()
         self.reTag()
@@ -64,21 +67,66 @@ class Environment:
         self.examFrame.columnconfigure(1,weight=2,uniform='examFrame')
         self.examFrame.grid(row=0,column=0,sticky=tk.NSEW)    
         
-        self.examBox = tk.LabelFrame(self.examFrame,text=self.examID)
+        self.sideExam = tk.Frame(self.examFrame)
+        self.sideExam.grid(row=0,column=0,sticky=tk.NSEW)
+        self.sideExam.rowconfigure('0 1',weight=1,uniform='sideExam')
+        self.sideExam.columnconfigure(0,weight=2,uniform='sideExam')
+
+        self.examBox = tk.LabelFrame(self.sideExam,text=" ".join((self.examID,'EXAM')))
         self.examBox.grid(row=0,column=0,sticky=tk.NSEW)
-        self.examBox.rowconfigure(0,weight=1)
-        self.examBox.columnconfigure(0,weight=1)
+        self.examBox.rowconfigure(0,weight=1,uniform='examBox')
+        self.examBox.columnconfigure(0,weight=8,uniform='examBox')
+        self.examBox.columnconfigure('1 2',weight=1,uniform='examBox')
         
+        self.dicomBox = tk.LabelFrame(self.sideExam,text=" ".join((self.examID,'DICOM')))
+        self.dicomBox.grid(row=1,column=0,sticky=tk.NSEW)
+        self.dicomBox.rowconfigure(0,weight=1,uniform='dicomBox')
+        self.dicomBox.columnconfigure(0,weight=18,uniform='dicomBox')
+        self.dicomBox.columnconfigure(1,weight=1,uniform='dicomBox')
+
         self.sideInfo = tk.Frame(self.examFrame)
         self.sideInfo.grid(row=0,column=1,sticky=tk.NSEW)
         self.sideInfo.rowconfigure('0 2',weight=1,uniform='sideframe')
         self.sideInfo.columnconfigure(0,weight=2,uniform='sideframe')
+
+        self.scaleColorValue = tk.Scale(self.examBox, orient=tk.VERTICAL)
+        self.scaleColorValue.grid(row=0,column=1,columnspan=2,sticky='NSE')
+        self.scaleColorValue.configure(
+            from_=self.imgObj.maxColor,
+            to=self.imgObj.minColor,
+            tickinterval=(self.imgObj.maxColor-self.imgObj.minColor)/12)
+
+        self.scaleColorImage = tk.Canvas(master=self.examBox,width=30)
+        self.scaleColorImage.grid(row=0,column=2,sticky='NSE')
+        self.updateScaleCanvas(self.showColor)
+
         self.resultCanvas = tk.Canvas(master=self.examBox)
         self.resultCanvas.grid(row=0,column=0)
+        
+        self.dicomExamsCanvas = tk.Canvas(master=self.dicomBox)
+        self.dicomExamsCanvas.grid(row=0,column=0)
+        
+        self.dicomExamsSelector = tk.Frame(master=self.dicomBox)
+        self.dicomExamsSelector.grid(row=0,column=1,sticky='NSWE')
+        self.dicomExamsSelector.columnconfigure(0,weight=1,uniform='dicomExamsSelector')
 
+        for index,img in enumerate(self.imgObj.dicomList):
+            btn = tk.Button(master=self.dicomExamsSelector,command=lambda i=img:self.changeDicom(i.pixel_array))
+            btn.grid(row=index,column=0,sticky='NSWE')
+            self.dicomExamsSelector.rowconfigure(index,weight=1,uniform='dicomExamsSelector')
+        
+        self.changeDicom(self.imgObj.dicomList[0].pixel_array)
         self.createRoiInfoBox()
         self.createHistoryListBox()
         self.createDecayBox()
+
+    def changeDicom(self,matrix):
+        self.dicomExamsCanvas.delete("all")
+        img = self.imgObj.getDicomImage(matrix)
+        self.showDicom = ImageTk.PhotoImage(image=img,size=img.size)
+        self.examDicomId = self.dicomExamsCanvas.create_image(0,0,anchor=tk.NW,image=self.showDicom,tags='showDicom')
+        self.dicomExamsCanvas.configure(width=img.width,height=img.height)
+        self.dicomExamsCanvas.update()
 
     def changeSelectedRoi(self,event):
         #a = [x for x in self.canvasElemList]
@@ -90,7 +138,7 @@ class Environment:
             self.maxVar.set(selectedRoi.max)
             self.areaVar.set(selectedRoi.area)
             self.pixVar.set(selectedRoi.pix)
-            
+            self.mseVar.set(selectedRoi.mse)
             scale = Image.open(selectedRoi.decayImgFile)
             self.decayCanvas.delete("all")  
             size = (self.decayCanvas.winfo_width(),self.decayCanvas.winfo_height())
@@ -106,6 +154,7 @@ class Environment:
             self.maxVar .set("")
             self.areaVar .set("")
             self.pixVar .set("")
+            self.mseVar.set("")
             self.decayCanvas.delete("all")   
         self.examFrame.winfo_toplevel().update_idletasks()
 
@@ -116,11 +165,26 @@ class Environment:
         self.imgObj.replaceRoi(self.canvasElemList)
         self.updateImage()
 
-    def updateColor(self,redScale,min,max):
-        self.imgObj.setColors(max,min,redScale)
+    def updateColor(self,min,max):
+        self.imgObj.setColors(max,min)
         self.imgObj.plotFigure()
         self.imgObj.replaceRoi(self.canvasElemList)
+        self.scaleColorValue.configure(from_=max,to=min,tickinterval=(max-min)/12)
+        self.updateScaleCanvas(self.showColor)
         self.updateImage()
+
+    def updateScaleCanvas(self,clock):
+        img = self.imgObj.printColorScale(clock)
+        self.scaleColorImage.update()
+        img=img.resize((30,500))#self.scaleColorValue.winfo_height()
+        self.scaleImg = ImageTk.PhotoImage(image=img,size=img.size)
+        self.scaleImgId = self.scaleColorImage.create_image(0,0,anchor=tk.NW,image=self.scaleImg,tags='scaleImg')
+        self.scaleColorImage.update()
+
+    def changeColorGray(self):
+        self.showColor = not self.showColor
+        self.updateImage()
+        self.updateScaleCanvas(self.showColor)
 
     def updateGray(self,min,max):
         self.imgObj.setGray(max,min)
@@ -148,7 +212,8 @@ class Environment:
             try:
                 xResized = tag.x*self.imgObj.activeZoom
                 yResized = tag.y*self.imgObj.activeZoom
-                self.resultCanvas.create_text(xResized,yResized,font="Arial 12 bold",text=tag.text)
+                self.createPin(tag,xResized,yResized)
+                #self.resultCanvas.create_text(xResized,yResized,font="Arial 12 bold",text=tag.text)
             except:
                 print("text came out of the canvas")
                 pass
@@ -218,8 +283,36 @@ class Environment:
         self.decayCanvas = tk.Canvas(master=self.decayBox)
         self.decayCanvas.grid(row=0,column=0,columnspan=2,sticky=tk.NSEW)
         self.mseLbl = tk.Label(self.decayBox,text="MSE:")
-        self.mseLbl.grid(row=1,column=0,sticky=tk.SW)
+        self.mseLbl.grid(row=1,column=0,sticky=tk.SW,pady=5)
         self.mseVar = tk.StringVar(self.decayBox)
         self.mseInfo = tk.Label(self.decayBox,textvariable=self.mseVar)
         self.mseInfo.grid(row=1,column=1,sticky=tk.SW,pady=5)
         
+    def showTag(self,event,tag):
+        self.resultCanvas.delete(tag.tagId)
+        self.resultCanvas.delete(tag.canvasId)
+        tag = [x for x in self.canvasElemList if x.canvasId == tag.canvasId][0]
+        
+        text = '\n'.join(line.strip() for line in re.findall(r'.{1,30}(?:\s+|$)', tag.text))
+        maxLine = max(map(len,text.splitlines()))
+        rect = self.resultCanvas.create_rectangle(event.x,event.y,event.x+(maxLine*11),event.y+len(text.splitlines())*23,fill='gray77')
+        self.resultCanvas.tag_bind(rect,'<ButtonPress-1>', lambda event:self.updateImage())       
+        for i,t in enumerate(text.splitlines()):
+            text = self.resultCanvas.create_text(event.x+5,event.y+(25*i),anchor=tk.NW,font="Arial 11",text=t)
+            self.resultCanvas.tag_bind(text,'<ButtonPress-1>', lambda event:self.updateImage())       
+    
+    def saveCanvas(self):
+        x=self.resultCanvas.winfo_x()
+        y=self.resultCanvas.winfo_y()
+        x1=x+self.resultCanvas.winfo_width()
+        y1=y+self.resultCanvas.winfo_height()
+        ImageGrab.grab().crop((x,y,x1,y1)).save(self.canvasPic)
+
+    def createPin(self,tag,x,y):
+        # + x and - y to shift the pin to right and up, to match the click with the point of the pin 
+        tag.canvasId = self.resultCanvas.create_rectangle(x,y,x+30,y+25,fill='white',tags=tag.elmId)
+        xSize = 10 if tag.canvasIndex <10 else 5 
+        tag.tagId = self.resultCanvas.create_text(x+xSize,y+3,anchor=tk.NW,font="Arial 11 bold",text=tag.canvasIndex)
+        self.resultCanvas.tag_bind(tag.canvasId, '<ButtonPress-1>', lambda event,t=tag:self.showTag(event,t))       
+        self.resultCanvas.tag_bind(tag.tagId, '<ButtonPress-1>', lambda event,t=tag:self.showTag(event,t))       
+        self.resultCanvas.update()    
