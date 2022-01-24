@@ -30,14 +30,20 @@ class PDF(FPDF):
         self.alias_nb_pages()
         self.add_page()
         self.set_font('Times', '', 12)
-        self.cell(20, 30, 'T2 Star colored')
+        self.cell(20, 30, 'T2 Star colored',allign='left')
         self.image(env.imgObj.colorName, 20, 40, 70)
-        self.cell(120, 30, 'Edited exam')
+        self.cell(100, 30, 'Edited exam',allign='left')
         self.image(env.canvasPic, 120, 40, 70)
-
+        yMax = 200
         tagList = [x for x in env.canvasElemList if type(x) == Tag]
-        for tag in tagList:
-            self.cell(20, 110, tag.getInfo())
+        for index,tag in enumerate(tagList):
+            self.cell(20, yMax, tag.getInfo(),allign='left')
+            yMax += (index+1)*30
+        roiList = [x for x in env.canvasElemList if type(x) == ROI]
+        for index,roi in enumerate(roiList):
+            self.image(roi.decayImgFile, 20, yMax, 70)
+            yMax += 60
+            
         self.output('tuto2.pdf', 'F')
 
 if __name__=="__main__":

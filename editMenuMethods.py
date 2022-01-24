@@ -8,31 +8,45 @@ from shape import Shape
 
 def startRoi(env,event,shape):
     newRoi = ROI(shape)
-    newRoi.setStart(event.x,event.y)
+    hbarStart,hbarEnd = env.hbar.get()
+    vbarStart,vbarEnd = env.vbar.get()
+    tempX = hbarStart*env.imgObj.size[0]*env.imgObj.activeZoom
+    tempY = vbarStart*env.imgObj.size[1]*env.imgObj.activeZoom
+    newX = event.x+tempX
+    newY = event.y+tempY
+    newRoi.setStart(newX,newY)
+    newRoi.setEnd(newX,newY)
     env.addCanvasElement(newRoi)
+    #fix this TODO
     #print ("clicked at", event.x, event.y)
     if shape == Shape.RECTANGLE:
-        env.activeROI = event.widget.create_rectangle(event.x,event.y,event.x,event.y, outline='black',width=3)
+        env.activeROI = event.widget.create_rectangle(newX,newY,newX,newY, outline='black',width=3)
     elif shape == Shape.CIRCLE:
-        env.activeROI = event.widget.create_oval(event.x,event.y,event.x,event.y, outline='black',width=3)
+        env.activeROI = event.widget.create_oval(newX,newY,newX,newY, outline='black',width=3)
     elif shape == Shape.FREE:
-        newRoi.points.append((event.x,event.y))
+        newRoi.points.append((newX,newY))
         
 def onMoveRoi(env,event):
     movingRoi = env.canvasElemList[-1]
-    movingRoi.x2,movingRoi.y2 = (event.x, event.y)
+    hbarStart,hbarEnd = env.hbar.get()
+    vbarStart,vbarEnd = env.vbar.get()
+    tempX = hbarStart*env.imgObj.size[0]*env.imgObj.activeZoom
+    tempY = vbarStart*env.imgObj.size[1]*env.imgObj.activeZoom
+    newX = event.x+tempX
+    newY = event.y+tempY
+    movingRoi.setEnd(newX, newY)
     # expand rectangle as you drag the mouse
     if movingRoi.shape == Shape.FREE:
-        movingRoi.points.append((event.x,event.y))
+        movingRoi.points.append((newX,newY))
         coords = [x for x in movingRoi.points[-2:]]
         xPrev,yPrev=coords[-1][0],coords[-1][1]
-        xDiff,yDiff = event.x-xPrev,event.y - yPrev
+        xDiff,yDiff = newX-xPrev,newY - yPrev
         if abs(xDiff)>30 or abs(yDiff)>30:
             coords.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
         movingRoi.points.append((xPrev+(xDiff/2),yPrev+(yDiff/2)))
         flatCoods = list(sum(coords, ()))
-        event.widget.create_line(event.x,event.y,flatCoods,fill='black',width=3,smooth=True)
-        movingRoi.points.append((event.x,event.y))
+        event.widget.create_line(newX,newY,flatCoods,fill='black',width=3,smooth=True)
+        movingRoi.points.append((newX,newY))
     elif movingRoi.shape == Shape.CIRCLE:
         xDiff = movingRoi.x2-movingRoi.x1
         yDiff = movingRoi.y1-movingRoi.y2
@@ -60,8 +74,8 @@ def releaseRoi(env,event):
     # Desconsidera o zoom para aplicar a ROI
     roi =  env.canvasElemList[-1]
     if roi.shape == Shape.FREE:
-        for point in roi.points:
-            point = list(map(lambda c: int(c/env.imgObj.activeZoom),point))
+        for i in range(len(roi.points)):
+            roi.points[i] = list(map(lambda c: int(c/env.imgObj.activeZoom),roi.points[i]))
     else:
         roi.x1,roi.y1,roi.x2,roi.y2 = map(
             lambda c: int(c/env.imgObj.activeZoom),
@@ -76,8 +90,11 @@ def releaseRoi(env,event):
     env.updateImage()
     
 def startDraw(event,env,thickness,color):
-    x1, y1 = map(lambda x: x + 4.5*thickness,(event.x,event.y))
-    x2, y2 = map(lambda x: x - 4.5*thickness,(event.x,event.y))
+    
+    hbarStart,hbarEnd = env.hbar.get()
+    tempX = ((hbarStart+hbarEnd)/2)*env.imgObj.size[0]
+    x1, y1 = map(lambda x: x + 4.5*thickness,(event.x+tempX,event.y))
+    x2, y2 = map(lambda x: x - 4.5*thickness,(event.x+tempX,event.y))
     d = DrawnLines(event.x,event.y,thickness,color,env.imgObj.activeZoom)
     env.addCanvasElement(d)
 

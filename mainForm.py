@@ -182,8 +182,8 @@ class MainForm():
         self.scaleMinG.configure(to=127,from_=0)
         self.scaleGray = tk.Canvas(master=self.scaleGrayBox,height=20)
         self.scaleGray.grid(row=6,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleImageGray = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\scalegray.png','sgray',self.scaleGray)
-        self.scaleImage  = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\scale.png','scolor',self.scaleRef)
+        self.scaleImageGray = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png','sgray',self.scaleGray)
+        self.scaleImage  = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\fixedscale.png','scolor',self.scaleRef)
         self.configureColorScale(self.scaleMaxC,self.scaleMinC)
         self.configureColorScale(self.scaleMaxG,self.scaleMinG)
 
@@ -418,7 +418,7 @@ class MainForm():
             self.envDict[key].imgObj = None
             self.envDict[key] = None
         for filename in os.listdir(f"{os.path.dirname(__file__)}\\imgs"):
-            if 'scale' not in filename:
+            if 'fixedscale' not in filename:
                 os.remove(f"{os.path.dirname(__file__)}\\imgs\\{filename}")
         self.root.mainloop
         self.root.quit()
@@ -439,7 +439,7 @@ class MainForm():
         fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
         ax.imshow(gradient, aspect='auto', cmap=gray)
         ax.set_axis_off()
-        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scalegray.png",bbox_inches = 'tight', dpi=200)
+        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png",bbox_inches = 'tight', dpi=200)
         plt.close()
         #return gray
         
@@ -454,7 +454,7 @@ class MainForm():
         fig, ax = plt.subplots(nrows=1, figsize=(10, 1))
         ax.imshow(gradient, aspect='auto', cmap=jet)
         ax.set_axis_off()
-        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\scale.png",bbox_inches = 'tight', dpi=200)
+        plt.savefig(f"{os.path.dirname(__file__)}\\imgs\\fixedscale.png",bbox_inches = 'tight', dpi=200)
         plt.close()
         #return jet
 

@@ -41,7 +41,7 @@ class imgObject():
         self.norm = Normalize(vmin=0,vmax=255)
         # Zoom ativo
         self.activeZoom = 1
-        for ds in dicomList:
+        for ds in dicomList[1:]:
             self.listEchoTime.append(ds.EchoTime/1000) 
         # Cria as imagens no que é carregado os arquivos
         self.createFigure()
@@ -54,7 +54,6 @@ class imgObject():
         """  
         self.imageMean = np.zeros((*self.size,len(self.dicomList)))
         analysis = np.zeros((*self.size,len(self.dicomList)))
-        
         warnings.filterwarnings('ignore')
         # Process the TE to get the values needed for the process later
         echoTimeSum = -sum(self.listEchoTime) 
@@ -65,49 +64,46 @@ class imgObject():
         # we can remove noise (salt and pe-pper noise?)
         for index in range(len(self.dicomList)):
             a = medfilt2d(
-                np.array(self.dicomList[index].pixel_array,dtype=np.float),
-                kernel_size=3)
+                np.array(self.dicomList[index].pixel_array,dtype=np.float))
             self.imageMean[:,:,index] = a
 
         # Then we define what will be the main matrix for the process (self.imgMatrix)
         # based on the size of the image (they will be the same)
-        self.imgMatrix = np.zeros(self.size) 
-        self.imgMatrix = np.reshape(self.imgMatrix,(
-            self.size[0]*self.size[1],1)) #
+        self.imgMatrix = np.zeros((self.size[0]*self.size[1],1)) 
 
         # We reset all values under 30.
-        self.imageMean[self.imageMean<30] = 0 #
-
+        self.imageMean[self.imageMean[:,:,0]<30] = 0
+        analysis = np.zeros((self.size[0]*self.size[1],len(self.listEchoTime))) 
+        
         # We create a vector to be easier to process
-        analysis = np.reshape(self.imageMean,
-            (self.size[0]*self.size[1],len(self.dicomList)))
-
+        for i in range(1,len(self.dicomList)):
+            imageMeanTrans = np.transpose(self.imageMean[:,:,i])
+            reshapeResult = np.reshape(imageMeanTrans,(self.size[0]*self.size[1]))
+            analysis[:,i-1] = reshapeResult
+        
         matLog = np.log(analysis)
+        matLogCleanIndex = np.where(matLog != -inf)
         matLog[matLog == -inf] = 0
+        
         arrSum = matLog.sum(axis=1)
         arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
 
         arrB = np.stack((arrSum,arrLogEchoTime))
-        A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
+        A = np.array([[len(self.listEchoTime), echoTimeSum],[echoTimeSum, echoTimeMul]])  
         invA = np.linalg.inv(A)
         P = np.matmul(invA,arrB)
-        
         self.imgMatrix = np.transpose(P)[:,[1]]
-        self.imgMatrix = np.reshape(self.imgMatrix,self.size)
-        tempMatrix = self.imgMatrix
+        self.imgMatrix = np.transpose(np.reshape(self.imgMatrix,self.size))
         self.imgMatrix = 1000/self.imgMatrix
-        clearInf = self.imgMatrix[self.imgMatrix!=inf]
-        tempMatrix[tempMatrix==inf] = np.max(clearInf)
+        
         # Reshape T2 for the size needed
-        self.s0 = np.reshape(np.transpose(P)[:,[0]],self.size)
-        ex = np.exp(-np.reshape(self.echoTimeArr,(self.echoTimeArr.shape[0],1)))
-        yTemp = np.matmul(tempMatrix,self.s0) #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
-        yTemp = tempMatrix*self.s0 #S0(i)*exp(-TE(1:end).*R2(ind(i),1));  
-        yTemp = np.reshape(yTemp,(self.size[0]*self.size[1],1))
-        yPred = np.matmul(yTemp,np.transpose(ex))
-        print(np.max(analysis), np.min(analysis))
-        print(np.max(yPred), np.min(yPred))
-        sse = np.square(analysis-yPred).sum(axis=1)
+        self.s0 = np.exp(P[[0],:])
+        self.echoTimeArr = np.reshape(self.echoTimeArr,(self.echoTimeArr.shape[0],1))
+        mulTimeP = np.matmul(-self.echoTimeArr,P[[1],:])
+        exTimeP = np.exp(mulTimeP)
+        yPred = np.multiply(exTimeP,self.s0)
+
+        sse = np.square(analysis-np.transpose(yPred)).sum(axis=1)
         self.imgMSE = sse/len(self.dicomList)
         self.imgMSE = np.reshape(self.imgMSE,self.size)
     
@@ -227,23 +223,20 @@ class imgObject():
                 roi.pix = f'{round(100*roi.area/self.imgMatrix.size,2)}%'
                 roi.mse = np.sqrt(cv2.meanStdDev(self.imgMSE,mask=mask)[0][0][0])
                 roi.mse = round(roi.mse,2)
-                #roi.mse = sqrt(mean(handles.ims{handles.currIm}.MSE(mask)))
-                self.listEchoTime
                 analysis = np.ndarray((0,))
-                for i in range(len(self.dicomList)):
+                for i in range(1,len(self.dicomList)):
                     mean = cv2.meanStdDev(self.imageMean[:,:,i],mask=mask)
                     analysis = np.concatenate((analysis,mean[0][0]))
+                self.echoTimeArr = np.array(self.listEchoTime) 
                 
                 matLog = np.log(analysis)
                 arrSum = matLog.sum(axis=0)
                 arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
-                
                 echoTimeSum = -sum(self.listEchoTime) 
-                self.echoTimeArr = np.array(self.listEchoTime) 
                 roi.time = np.arange(self.listEchoTime[0]*1000,self.listEchoTime[-1]*1000,1)
                 echoTimeMul = np.matmul(np.transpose(self.echoTimeArr),self.echoTimeArr) 
                 arrB = np.stack((arrSum,arrLogEchoTime))
-                A = np.array([[len(self.dicomList), echoTimeSum],[echoTimeSum, echoTimeMul]])  
+                A = np.array([[len(self.listEchoTime), echoTimeSum],[echoTimeSum, echoTimeMul]])  
                 invA = np.linalg.inv(A)
                 P = np.matmul(invA,arrB)
                 roi.decay = np.exp(P[0])*np.exp(-roi.time*(P[1]/1000))

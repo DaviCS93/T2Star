@@ -1,6 +1,8 @@
 import re
 import os
 from tkinter.constants import X,END
+
+from numpy import newaxis
 from canvasElements import DrawnLines,ROI,Tag
 import tkinter as tk
 from tkinter import ttk
@@ -33,7 +35,7 @@ class Environment:
         # Taxa de zoom
         self.zoomFactor = 1.2
         self.historyListItems = tk.StringVar()
-        self.canvasPic = f'canvas{examID}.png'
+        self.canvasPic = f'imgs/canvas{examID}.png'
 
     @timer
     def updateImage(self):
@@ -59,6 +61,13 @@ class Environment:
             self.imgObj.activeZoom *= self.zoomFactor
         else:
             self.imgObj.activeZoom /= self.zoomFactor
+        self.updateCanvasScroll()
+
+    def updateCanvasScroll(self):
+        newX = self.imgObj.size[0]*self.imgObj.activeZoom
+        newY = self.imgObj.size[1]*self.imgObj.activeZoom
+        self.resultCanvas.config(scrollregion=(0,0,newX,newY))
+        self.hbar.get()
 
     def createExamViewer(self,frm):
         self.examFrame = tk.Frame(frm,name=txt.EXAMIMAGE)
@@ -75,8 +84,8 @@ class Environment:
         self.examBox = tk.LabelFrame(self.sideExam,text=" ".join((self.examID,'EXAM')))
         self.examBox.grid(row=0,column=0,sticky=tk.NSEW)
         self.examBox.rowconfigure(0,weight=1,uniform='examBox')
-        self.examBox.columnconfigure(0,weight=8,uniform='examBox')
-        self.examBox.columnconfigure('1 2',weight=1,uniform='examBox')
+        self.examBox.columnconfigure(0,weight=9,uniform='examBox')
+        self.examBox.columnconfigure('2 3',weight=1,uniform='examBox')
         
         self.dicomBox = tk.LabelFrame(self.sideExam,text=" ".join((self.examID,'DICOM')))
         self.dicomBox.grid(row=1,column=0,sticky=tk.NSEW)
@@ -90,18 +99,26 @@ class Environment:
         self.sideInfo.columnconfigure(0,weight=2,uniform='sideframe')
 
         self.scaleColorValue = tk.Scale(self.examBox, orient=tk.VERTICAL)
-        self.scaleColorValue.grid(row=0,column=1,columnspan=2,sticky='NSE')
+        self.scaleColorValue.grid(row=0,column=2,columnspan=2,sticky='NSE')
         self.scaleColorValue.configure(
             from_=self.imgObj.maxColor,
             to=self.imgObj.minColor,
             tickinterval=(self.imgObj.maxColor-self.imgObj.minColor)/12)
 
         self.scaleColorImage = tk.Canvas(master=self.examBox,width=30)
-        self.scaleColorImage.grid(row=0,column=2,sticky='NSE')
+        self.scaleColorImage.grid(row=0,column=3,sticky='NSE')
         self.updateScaleCanvas(self.showColor)
 
-        self.resultCanvas = tk.Canvas(master=self.examBox)
+        self.resultCanvas = tk.Canvas(master=self.examBox,scrollregion=(0,0,self.imgObj.size[0],self.imgObj.size[1]))
         self.resultCanvas.grid(row=0,column=0)
+
+        self.hbar=tk.Scrollbar(self.examBox,orient=tk.HORIZONTAL)
+        self.hbar.grid(row=1,column=0,sticky=tk.EW)
+        self.hbar.config(command=self.resultCanvas.xview)
+        self.vbar=tk.Scrollbar(self.examBox,orient=tk.VERTICAL)
+        self.vbar.grid(row=0,column=1,sticky='NSE')
+        self.vbar.config(command=self.resultCanvas.yview)
+        self.resultCanvas.config(xscrollcommand=self.hbar.set,yscrollcommand=self.vbar.set)
         
         self.dicomExamsCanvas = tk.Canvas(master=self.dicomBox)
         self.dicomExamsCanvas.grid(row=0,column=0)
@@ -302,8 +319,8 @@ class Environment:
             self.resultCanvas.tag_bind(text,'<ButtonPress-1>', lambda event:self.updateImage())       
     
     def saveCanvas(self):
-        x=self.resultCanvas.winfo_x()
-        y=self.resultCanvas.winfo_y()
+        x=self.resultCanvas.winfo_rootx()#+self.resultCanvas.winfo_x()
+        y=self.resultCanvas.winfo_rooty()#+self.resultCanvas.winfo_y()
         x1=x+self.resultCanvas.winfo_width()
         y1=y+self.resultCanvas.winfo_height()
         ImageGrab.grab().crop((x,y,x1,y1)).save(self.canvasPic)
