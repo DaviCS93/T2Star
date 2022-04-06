@@ -237,15 +237,17 @@ class Environment:
 
     def addCanvasElement(self,element):
         self.canvasElemList.append(element)
+
+    def addElementHistory(self,element):
         self.historyListbox.insert('',END,iid=element.elmId,values=(str(element),element.getInfo()))
         
     def createRoiInfoBox(self): 
-        self.roiInfoBox = tk.LabelFrame(self.sideInfo,text='Roi Information')
+        self.roiInfoBox = tk.LabelFrame(self.sideInfo,text='Informações da ROI')
         self.roiInfoBox.grid(row=1,column=0,sticky=tk.NSEW)
         #Desvio padrão Min Max Area pix
-        self.meanLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Mean:")
+        self.meanLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Média:")
         self.meanLbl.grid(row=0,column=0,sticky=tk.NE,pady=(5,0))
-        self.stdLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Std:")
+        self.stdLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Desvio padrão:")
         self.stdLbl.grid(row=1,column=0,sticky=tk.NE,pady=(5,0))
         self.minLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Min:")
         self.minLbl.grid(row=2,column=0,sticky=tk.NE,pady=(5,0))
@@ -253,7 +255,7 @@ class Environment:
         self.maxLbl.grid(row=0,column=2,sticky=tk.NE,pady=(5,0))
         self.areaLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="Area:")
         self.areaLbl.grid(row=1,column=2,sticky=tk.NE,pady=(5,0))
-        self.pixLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="pix:")
+        self.pixLbl = tk.Label(self.roiInfoBox,justify=tk.RIGHT,text="ROI/Total:")
         self.pixLbl.grid(row=2,column=2,sticky=tk.NE,pady=(5,5))
         
         self.meanVar = tk.StringVar(self.roiInfoBox)
@@ -277,7 +279,7 @@ class Environment:
         self.pixInfo.grid(row=2,column=3,sticky=tk.NW,pady=(5,0))
 
     def createHistoryListBox(self):
-        self.itemsBox = tk.LabelFrame(self.sideInfo,text='Edit history')
+        self.itemsBox = tk.LabelFrame(self.sideInfo,text='Histórico de edição')
         self.itemsBox.grid(row=0,column=0,sticky=tk.NSEW)
         self.itemsBox.columnconfigure(0,weight=1)
         self.itemsBox.rowconfigure(0,weight=1)
@@ -287,19 +289,19 @@ class Environment:
         self.historyListbox.bind('<<DeleteTreeViewItem>>',lambda event: self.deleteSelectedRoi(event))
         self.historyListbox.column('#0',width=0,stretch=False)
         self.historyListbox.column('Name',width=100,stretch=False)
-        self.historyListbox.heading('Name', text='Name')
+        self.historyListbox.heading('Name', text='Nome')
         self.historyListbox.column('Info',stretch=True)
         self.historyListbox.heading('Info', text='Info')
         self.historyListbox.grid(row=0,column=0,sticky=tk.NSEW,pady=(10,0))
 
     def createDecayBox(self):
-        self.decayBox = tk.LabelFrame(self.sideInfo,text='Decay and MSE')
+        self.decayBox = tk.LabelFrame(self.sideInfo,text='Decaimento e EQM')
         self.decayBox.grid(row=2,column=0,sticky=tk.NSEW)
         self.decayBox.columnconfigure(1,weight=1)
         self.decayBox.rowconfigure(0,weight=1)
         self.decayCanvas = tk.Canvas(master=self.decayBox)
         self.decayCanvas.grid(row=0,column=0,columnspan=2,sticky=tk.NSEW)
-        self.mseLbl = tk.Label(self.decayBox,text="MSE:")
+        self.mseLbl = tk.Label(self.decayBox,text="EQM:")
         self.mseLbl.grid(row=1,column=0,sticky=tk.SW,pady=5)
         self.mseVar = tk.StringVar(self.decayBox)
         self.mseInfo = tk.Label(self.decayBox,textvariable=self.mseVar)

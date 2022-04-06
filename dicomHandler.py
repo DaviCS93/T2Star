@@ -4,7 +4,7 @@ import pydicom
 from tkinter import filedialog as dialog
 import tkinter as tk
 from imgObject import imgObject
-from math import floor
+from math import floor,inf
 import numpy as np
 
 # Handler responsável por abrir os arquivos dicom
@@ -36,6 +36,7 @@ def openDicomFiles(files,examName,quantity=None):
 
 def exportDicom(img,dcm):
     #dcm.pixel_array = img
+    #img = img*1000
     img = np.array(img,dtype=np.uint16)
     dcm.PixelData = img.tobytes()
     dcm.save_as("testing.dcm")

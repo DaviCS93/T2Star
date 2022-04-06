@@ -17,7 +17,6 @@ def startRoi(env,event,shape):
     newRoi.setStart(newX,newY)
     newRoi.setEnd(newX,newY)
     env.addCanvasElement(newRoi)
-    #fix this TODO
     #print ("clicked at", event.x, event.y)
     if shape == Shape.RECTANGLE:
         env.activeROI = event.widget.create_rectangle(newX,newY,newX,newY, outline='black',width=3)
@@ -81,11 +80,13 @@ def releaseRoi(env,event):
             lambda c: int(c/env.imgObj.activeZoom),
             (roi.x1,roi.y1,roi.x2,roi.y2))
     env.imgObj.replaceRoi(env.canvasElemList)
+    env.imgObj.saveRoi(roi)
     # Deleta imagem atual do exame
     event.widget.delete("all")
     event.widget.unbind("<ButtonPress-1>")
     event.widget.unbind("<B1-Motion>")
     event.widget.unbind("<ButtonRelease-1>")
+    env.addElementHistory(roi)
     env.historyListbox.selection_set(env.canvasElemList[-1].elmId)
     env.updateImage()
     
@@ -111,6 +112,7 @@ def onMoveDraw(event,env,thickness,color):
     env.canvasElemList[-1].addCoord(event.x,event.y)
 
 def releaseDraw(event,env):
+    env.addElementHistory(env.canvasElemList[-1])
     env.updateImage()
     pass
     # event.widget.unbind("<ButtonPress-1>")
@@ -148,3 +150,4 @@ def releaseTag(popup,text,x,y,canvas,env):
     canvas.unbind("<B1-Motion>")
     canvas.unbind("<ButtonRelease-1>")
     popup.destroy()
+    env.addElementHistory(env.canvasElemList[-1])

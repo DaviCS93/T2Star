@@ -1,22 +1,23 @@
+from functools import update_wrapper
 from canvasElements import DrawnLines
 from dicomHandler import exportDicom
 from sys import builtin_module_names
 
 
 class Buttons():
-    EXPORT_DICOM = "Export DICOM File"
-    EXPORT_PDF = "Export as PDF"
-    IMPORT_NORMAL = "Import Files"
-    IMPORT_BATCH = "Import by Batch"
-    GRAY2COLOR = "Change to Color"
-    COLOR2GRAY = "Change to Gray"
-    CIRCLE = "Circle"
-    RECTANGLE = "Rectangle"
-    FREE = "Free Hand"
-    DRAW = "Draw"
-    ZOOM_IN = "Zoom in"
-    ZOOM_OUT = "Zoom out"
-    TAG = "Tag"
+    EXPORT_DICOM = "Gerar arquivo Dicom"
+    EXPORT_PDF = "Gerar PDF"
+    IMPORT_NORMAL = "Importar Arquivos"
+    IMPORT_BATCH = "Importar por lotes"
+    GRAY2COLOR = "Trocar para colorido"
+    COLOR2GRAY = "Trocar para escala de cinza"
+    CIRCLE = "Circulo"
+    RECTANGLE = "Retangulo"
+    FREE = "Mão-livre"
+    DRAW = "Pincel"
+    ZOOM_IN = "Aumentar Zoom"
+    ZOOM_OUT = "Diminuir Zoom"
+    TAG = "Etiqueta"
     BLUE = 'blue'
     RED = 'red'
     YELLOW = 'yellow'
@@ -24,23 +25,29 @@ class Buttons():
     BLACK = 'black'
 
 class Labels():
-     ZOOM = "Zoom"
+    ZOOM = "Zoom"
+    UPPER = "Limite superior"
+    LOWER = "Limite inferior"
+    NAME_EXAM_WINDOW = "Solicitação"
+    NAME_EXAM_LABEL = "Por favor, escreva um nome para o exame"
+    BATCH_EXAM_WINDOW = "Solicitação"
+    BATCH_EXAM_LABEL = "Por favor, insira a quantidade de ecos por exame"
 
 class Texts():
-    NOTEBOOK = "examList"
-    EXAMIMAGE = "examFrame"
+    NOTEBOOK = "listaExames"
+    EXAMIMAGE = "quadroExames"
 
 class TopMenuLabels():
-    FILE = "File"
+    FILE = "Arquivo"
     LOADEXAMBATCH = "Load new Exam by batch"
     LOADEXAMNORMAL = "Load new Exam"
 
 class Labelframes():
-    IMPORT = "Import"
-    EXPORT = "Export"
-    DRAW = "Pencil"
-    ROI = "ROI options"
+    IMPORT = "Importar"
+    EXPORT = "Exportar"
+    DRAW = "Pincel"
+    ROI = "Opções de ROI"
     ZOOM = "Zoom"
-    TAG = "Notes"
-    SCALE_COLOR = "T2 Color Scale"
-    SCALE_GRAY = "Gray Scale"
+    TAG = "Etiquetas"
+    SCALE_COLOR = "Escala de cor"
+    SCALE_GRAY = "Escala de cinza"

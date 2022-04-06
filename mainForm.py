@@ -23,6 +23,7 @@ from errorHandler import LOGTYPE, printLog
 from pdfHandler import PDF
 from shape import Shape
 import os
+from canvasElements import DrawnLines,ROI,Tag
 
 class MainForm():
     
@@ -161,29 +162,30 @@ class MainForm():
         self.scaleMinValueGray = tk.IntVar(self.scaleGrayBox)
         # self.scaleRedValue = tk.IntVar(self.scaleColorBox)
         # self.scaleRedValue.set(50)
-
+        self.scaleGrayFile = f'{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png','sgray',self.scaleGray
+        self.scaleColorFile =f'{os.path.dirname(__file__)}\\imgs\\fixedscale.png','scolor',self.scaleRef
         # Setting max and min values for both max and min scales, and setting red to keep between them
         self.scaleMaxC = tk.Scale(self.scaleColorBox,command=lambda x:self.checkPlotColor())
         self.scaleMaxC.grid(row=0,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleMaxC.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueColor,label='Max value')
+        self.scaleMaxC.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueColor,label='Valor máximo')
         self.scaleMinC = tk.Scale(self.scaleColorBox,command=lambda x:self.checkPlotColor())
         self.scaleMinC.grid(row=1,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleMinC.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueColor,label='Min value')
+        self.scaleMinC.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueColor,label='Valor mínimo')
         self.scaleRef = tk.Canvas(master=self.scaleColorBox,height=20)
         self.scaleRef.grid(row=3,column=0,padx=3,pady=5,sticky='SWE')  
         
         self.scaleMaxG = tk.Scale(self.scaleGrayBox,command=lambda x:self.checkPlotGray())
         self.scaleMaxG.grid(row=4,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleMaxG.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueGray,label='Upper value')
+        self.scaleMaxG.configure(orient=tk.HORIZONTAL,variable=self.scaleMaxValueGray,label='Valor máximo')
         self.scaleMaxG.configure(to=255,from_=128)
         self.scaleMinG = tk.Scale(self.scaleGrayBox,command=lambda x:self.checkPlotGray())
         self.scaleMinG.grid(row=5,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleMinG.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueGray,label='Lower value')
+        self.scaleMinG.configure(orient=tk.HORIZONTAL,variable=self.scaleMinValueGray,label='Valor mínimo')
         self.scaleMinG.configure(to=127,from_=0)
         self.scaleGray = tk.Canvas(master=self.scaleGrayBox,height=20)
         self.scaleGray.grid(row=6,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleImageGray = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png','sgray',self.scaleGray)
-        self.scaleImage  = self.printScale(f'{os.path.dirname(__file__)}\\imgs\\fixedscale.png','scolor',self.scaleRef)
+        self.scaleImageGray = self.printScale(self.scaleGrayFile)
+        self.scaleImage  = self.printScale(self.scaleColorFile)
         self.configureColorScale(self.scaleMaxC,self.scaleMinC)
         self.configureColorScale(self.scaleMaxG,self.scaleMinG)
 
@@ -263,18 +265,15 @@ class MainForm():
         files =  filedialog.askopenfilenames()
         if not files:
             return
-        examName = simpledialog.askstring("Name Request","Write an name for the exam")
+        examName = simpledialog.askstring(lbls.NAME_EXAM_WINDOW,lbls.NAME_EXAM_LABEL)
         if not examName:
             return
-        batchQty = simpledialog.askinteger("Batch quantity Request","Type the number of echos for each image")
+        batchQty = simpledialog.askinteger(lbls.BATCH_EXAM_WINDOW,lbls.BATCH_EXAM_LABEL,"Type the number of echos for each image")
         if not batchQty:
             return
         examDict = dcmHandler.openDicomFiles(files,examName,batchQty)
         for examID,dicomList in examDict.items():
                 self.loader(examID.lower(),dicomList)
-                # t = Thread(target=self.loader,args=(img,))
-                # loaderList.append(t)
-                # t.start()
 
     def loadExamNormal(self):
         """
@@ -289,9 +288,6 @@ class MainForm():
         examDict = dcmHandler.openDicomFiles(files,examName)
         for examID,dicomList in examDict.items():
                 self.loader(examID.lower(),dicomList)
-                # t = Thread(target=self.loader,args=(img,))
-                # loaderList.append(t)
-                # t.start()
   
     def onEnvChange(self,event):
         self.job = None
@@ -362,9 +358,23 @@ class MainForm():
     def cbExportPdf(self):
         self.clearCursor()
         if self.envActive:
-            self.envActive.saveCanvas()
-            pdf = PDF()
-            pdf.exportExam(self.envActive)
+            if self.envActive.showColor:
+                self.envActive.changeColorGray()
+                self.envActive.saveCanvas()
+                self.envActive.changeColorGray()
+            else:
+                self.envActive.saveCanvas()
+            pdf = PDF(f'T2 Map Report - {self.envActive.examID}',orientation='P',unit='mm',format='A4')
+            pdf.add_page()
+            scale = f"{os.path.dirname(__file__)}\\imgs\\scale{self.envActive.examID}.png"
+            pdf.print_base(self.envActive.imgObj.colorName,self.envActive.canvasPic,scale)
+            pdf.print_rois([x for x in self.envActive.canvasElemList if type(x) == ROI])
+            pdf.print_labels([x for x in self.envActive.canvasElemList if type(x) == Tag],self.envActive.canvasPic)
+            dirName = 'Reports'
+            if not os.path.exists(dirName):
+                os.mkdir(dirName)
+            pdf.output(os.path.join(os.path.dirname(__file__),dirName,f'{self.envActive.examID}.pdf'), 'F')
+            tk.messagebox.showinfo(title=None, message='PDF exportado!')
 
     def loadImageNotebook(self):
         """

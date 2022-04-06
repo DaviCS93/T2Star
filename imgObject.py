@@ -52,42 +52,51 @@ class imgObject():
         """
         docstring
         """  
+        #Create 3 matrix of zeros with the same size as the dicom, and z-axis same length as images cound
+        #First is for the means, second is for the analysis and third is for the final results
         self.imageMean = np.zeros((*self.size,len(self.dicomList)))
         analysis = np.zeros((*self.size,len(self.dicomList)))
+        self.imgMatrix = np.zeros((self.size[0]*self.size[1],1)) 
         warnings.filterwarnings('ignore')
+
         # Process the TE to get the values needed for the process later
+        # We need a negative sum value, an array with all times and a matrix with
+        # these two arrays multiplied (1 transpose)
         echoTimeSum = -sum(self.listEchoTime) 
         self.echoTimeArr = np.array(self.listEchoTime) 
         echoTimeMul = np.matmul(np.transpose(self.echoTimeArr),self.echoTimeArr) 
 
         # For each dicom, we need to take the image mean, so
-        # we can remove noise (salt and pe-pper noise?)
+        # we can remove noise
         for index in range(len(self.dicomList)):
             a = medfilt2d(
                 np.array(self.dicomList[index].pixel_array,dtype=np.float))
             self.imageMean[:,:,index] = a
 
-        # Then we define what will be the main matrix for the process (self.imgMatrix)
-        # based on the size of the image (they will be the same)
-        self.imgMatrix = np.zeros((self.size[0]*self.size[1],1)) 
-
         # We reset all values under 30.
         self.imageMean[self.imageMean[:,:,0]<30] = 0
         analysis = np.zeros((self.size[0]*self.size[1],len(self.listEchoTime))) 
-        
+
         # We create a vector to be easier to process
+        # for each layer in the matrix imageMean we create a vector, converting it from
+        # a M,N,L matrix to a M*N,L,1 matrix (setting it for analysis)
         for i in range(1,len(self.dicomList)):
             imageMeanTrans = np.transpose(self.imageMean[:,:,i])
             reshapeResult = np.reshape(imageMeanTrans,(self.size[0]*self.size[1]))
             analysis[:,i-1] = reshapeResult
         
+        # Apply the log for the analysis (cap the - infinite to 0, no reason to have negative values)
         matLog = np.log(analysis)
-        matLogCleanIndex = np.where(matLog != -inf)
         matLog[matLog == -inf] = 0
         
+        # We sum all pixels from different images in the same array
         arrSum = matLog.sum(axis=1)
+        
+        # Multiply the previous log result with the time echo array
+        # we have M*N,L X L,1 = M*N,1
         arrLogEchoTime = np.matmul(matLog,-self.echoTimeArr)
 
+        #
         arrB = np.stack((arrSum,arrLogEchoTime))
         A = np.array([[len(self.listEchoTime), echoTimeSum],[echoTimeSum, echoTimeMul]])  
         invA = np.linalg.inv(A)
@@ -106,7 +115,9 @@ class imgObject():
         sse = np.square(analysis-np.transpose(yPred)).sum(axis=1)
         self.imgMSE = sse/len(self.dicomList)
         self.imgMSE = np.reshape(self.imgMSE,self.size)
-    
+        np.savetxt('imgMSE.txt',self.imgMSE,fmt='%.2f')
+        np.savetxt('imgMatrix.txt',self.imgMatrix,fmt='%.2f')
+
     @timer 
     def plotFigure(self):
         # Deletar imagens da pasta antes-
@@ -189,6 +200,7 @@ class imgObject():
         cvEcho = cv2.imread(self.grayName) # pylint: disable=maybe-no-member
         cvStar = cv2.imread(self.colorName) # pylint: disable=maybe-no-member
         #alpha = cvEcho[:,:,3]
+        
         for roi in roiList:
             if not type(roi) == ROI:
                 continue
@@ -212,13 +224,14 @@ class imgObject():
             mask_inv = cv2.bitwise_not(mask) # pylint: disable=maybe-no-member
             imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv) # pylint: disable=maybe-no-member
             imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
+            # cvEcho2 = cvEcho
             cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
             if not roi.definedInfo: 
                 roi.mean,roi.std = cv2.meanStdDev(self.imgMatrix,mask=mask)
                 roi.mean,roi.std = round(roi.mean[0][0], 2),round(roi.std[0][0], 2)
-                roi.min,roi.max,_,_  = cv2.minMaxLoc(self.imgMatrix,mask)
-                roi.min = round(roi.min,2)
-                roi.max = round(roi.max,2)
+                minn,maxx,minLoc,maxLoc  = cv2.minMaxLoc(self.imgMatrix,mask)
+                roi.min = round(minn,2)
+                roi.max = round(maxx,2)
                 roi.area =cv2.countNonZero(mask)
                 roi.pix = f'{round(100*roi.area/self.imgMatrix.size,2)}%'
                 roi.mse = np.sqrt(cv2.meanStdDev(self.imgMSE,mask=mask)[0][0][0])
@@ -251,6 +264,36 @@ class imgObject():
                 roi.definedInfo = True
         
         self.resultRoiImage = Image.fromarray(cvEcho)  
+
+    @timer
+    def saveRoi(self,roi):
+        cvEcho = cv2.imread(self.grayName) # pylint: disable=maybe-no-member
+        cvStar = cv2.imread(self.colorName) # pylint: disable=maybe-no-member
+        mask = np.zeros(self.size, np.uint8)
+        if roi.shape == Shape.FREE:
+            points = np.array(roi.points,np.int32)
+            mask = cv2.fillPoly(mask,[points],(255, 255, 255)) # pylint: disable=maybe-no-member
+        if roi.shape == Shape.RECTANGLE:
+            mask = cv2.rectangle(mask,roi.start,roi.end,(255, 255, 255), -1) # pylint: disable=maybe-no-member
+        if roi.shape == Shape.CIRCLE:
+            #Para o circulo precisamos do centro e do raio
+            #Então temos que fazer alguns calculos
+            #Para o centro fazemos o canto menos o outro para conseguir o lado
+            #Então, dividimos por 2 para ter o centro e somamos o 1 canto
+            #para ter o centro do lado em relação ao zero do Roi
+            circleCenter = (int(roi.x1+((roi.x2-roi.x1)/2)),int(roi.y1+((roi.y2-roi.y1)/2)))
+            #Para o raio, é só usar a mesma logica do centro
+            #Só que sem somar o zero do Roi
+            radius = abs(int((roi.x2-roi.x1)/2))
+            mask = cv2.circle(mask,circleCenter,radius,(255, 255, 255), cv2.FILLED) # pylint: disable=maybe-no-member
+        mask_inv = cv2.bitwise_not(mask) # pylint: disable=maybe-no-member
+        imgEcho_bg = cv2.bitwise_or(cvEcho, cvEcho, mask = mask_inv) # pylint: disable=maybe-no-member
+        imgStar_fg = cv2.bitwise_or(cvStar, cvStar, mask = mask) # pylint: disable=maybe-no-member
+        # cvEcho2 = cvEcho
+        cvEcho = cv2.add(imgEcho_bg,imgStar_fg) # pylint: disable=maybe-no-member
+        name = f'{os.path.dirname(__file__)}\\imgs\\{self.examName}_{roi.elmId}.png'
+        cv2.imwrite(name, cvEcho)
+        roi.imgFile = name
 
     @timer
     def printColorScale(self,clock):

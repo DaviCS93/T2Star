@@ -34,6 +34,7 @@ class ROI(canvasElement):
         self.pix = 0.0
         self.decayImgFile = ""
         self.decayImg = None
+        self.imgFile = ""
         self.mse = 0.0
         self.decay = None
         self.time = None
@@ -56,7 +57,7 @@ class ROI(canvasElement):
         return self.x2,self.y2
 
     def getInfo(self):
-        return f'{self.shape.name}({self.x1},{self.y1}),({self.x2},{self.y2})'
+        return f'{self.shape.name}({round(self.x1,0)},{round(self.y1,0)}),({round(self.x2,0)},{round(self.y2,0)})'
 
 class DrawnLines(canvasElement):
     def __init__(self,x,y,thickness,color,zoom):
