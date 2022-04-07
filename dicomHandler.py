@@ -34,9 +34,10 @@ def openDicomFiles(files,examName,quantity=None):
                 examFileDict[examName].append(dcm)
     return examFileDict
 
-def exportDicom(img,dcm):
+def exportDicom(env,dir):
+    
     #dcm.pixel_array = img
     #img = img*1000
-    img = np.array(img,dtype=np.uint16)
-    dcm.PixelData = img.tobytes()
-    dcm.save_as("testing.dcm")
+    img = np.array(env.imgObj.imgMatrix,dtype=np.uint16)
+    env.imgObj.dicomList[0].PixelData = img.tobytes()
+    env.imgObj.dicomList[0].save_as(f"{dir}\\{env.examID}.dcm")

@@ -30,9 +30,9 @@ class PDF(FPDF):
         self.set_font('Arial','', 14)
         self.add_text(15, 40, 'Mapa T2 - Color map jet')
         self.image(color,15,45,70)
-        self.image(scale_color,100,45,10,70)
+        #self.image(scale_color,100,45,10,70)
         self.add_text(120, 40, 'Mapa T2 - Imagem pós edição')
-        self.image(scale_color,100,45,10,70)
+        #self.image(scale_color,100,45,10,70)
         self.image(canvas,120,45,70)
         pass    
 

@@ -1,29 +1,35 @@
-from scipy.signal.ltisys import impulse2
-from decorators import timer
-import matplotlib as matplot
-import numpy as np
-import matplotlib.pyplot as plt
+import os
+import time
 import tkinter as tk
+from tkinter import  filedialog, simpledialog, ttk
 from tkinter.constants import END, NONE
-from PIL import ImageTk,Image
-from sys import exit as closeThread
-from threading import Thread
-from tkinter import BaseWidget, ttk,filedialog,simpledialog
-from typing import ByteString
+
+import matplotlib as matplot
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image, ImageTk
 from ttkthemes import ThemedTk
+
 import dicomHandler as dcmHandler
 import editMenuMethods as edit
+from canvasElements import ROI, Tag
 from enumInterface import Buttons as btns
+from enumInterface import Labelframes as lblsfrm
 from enumInterface import Labels as lbls
 from enumInterface import Texts as txt
-from enumInterface import TopMenuLabels as lblsTop
-from enumInterface import Labelframes as lblsfrm
 from environment import Environment
 from errorHandler import LOGTYPE, printLog
 from pdfHandler import PDF
 from shape import Shape
-import os
-from canvasElements import DrawnLines,ROI,Tag
+
+
+def timer(func,*args,**kwargs):
+    def wrapper(*args,**kwargs):
+        start = time.time()
+        result = func(*args,**kwargs)
+        print(f'Time spend in {func.__name__} :{round(time.time()-start,3)} seconds')
+        return result
+    return wrapper
 
 class MainForm():
     
@@ -162,8 +168,8 @@ class MainForm():
         self.scaleMinValueGray = tk.IntVar(self.scaleGrayBox)
         # self.scaleRedValue = tk.IntVar(self.scaleColorBox)
         # self.scaleRedValue.set(50)
-        self.scaleGrayFile = f'{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png','sgray',self.scaleGray
-        self.scaleColorFile =f'{os.path.dirname(__file__)}\\imgs\\fixedscale.png','scolor',self.scaleRef
+        self.scaleGrayFile = f'{os.path.dirname(__file__)}\\imgs\\fixedscalegray.png'
+        self.scaleColorFile =f'{os.path.dirname(__file__)}\\imgs\\fixedscale.png'
         # Setting max and min values for both max and min scales, and setting red to keep between them
         self.scaleMaxC = tk.Scale(self.scaleColorBox,command=lambda x:self.checkPlotColor())
         self.scaleMaxC.grid(row=0,column=0,padx=3,pady=5,sticky='SWE')
@@ -184,8 +190,8 @@ class MainForm():
         self.scaleMinG.configure(to=127,from_=0)
         self.scaleGray = tk.Canvas(master=self.scaleGrayBox,height=20)
         self.scaleGray.grid(row=6,column=0,padx=3,pady=5,sticky='SWE')
-        self.scaleImageGray = self.printScale(self.scaleGrayFile)
-        self.scaleImage  = self.printScale(self.scaleColorFile)
+        self.scaleImageGray = self.printScale(self.scaleGrayFile,'sgray',self.scaleGray)
+        self.scaleImage  = self.printScale(self.scaleColorFile,'scolor',self.scaleRef)
         self.configureColorScale(self.scaleMaxC,self.scaleMinC)
         self.configureColorScale(self.scaleMaxG,self.scaleMinG)
 
@@ -436,8 +442,12 @@ class MainForm():
 
     def cbExportDicom(self):
         if self.envActive:
-            dcmHandler.exportDicom(self.envActive.imgObj.imgMatrix,self.envActive.imgObj.dicomList[0])
-    
+            dirName = 'Reports'
+            if not os.path.exists(dirName):
+                os.mkdir(dirName)
+            dcmHandler.exportDicom(self.envActive,os.path.join(os.path.dirname(__file__),dirName))
+            tk.messagebox.showinfo(title=None, message='Dicom exportado!')
+
     @timer    
     def defineGray(self):
         """
