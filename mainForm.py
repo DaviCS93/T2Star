@@ -274,7 +274,7 @@ class MainForm():
         examName = simpledialog.askstring(lbls.NAME_EXAM_WINDOW,lbls.NAME_EXAM_LABEL)
         if not examName:
             return
-        batchQty = simpledialog.askinteger(lbls.BATCH_EXAM_WINDOW,lbls.BATCH_EXAM_LABEL,"Type the number of echos for each image")
+        batchQty = simpledialog.askinteger(lbls.BATCH_EXAM_WINDOW,lbls.BATCH_EXAM_LABEL)
         if not batchQty:
             return
         examDict = dcmHandler.openDicomFiles(files,examName,batchQty)
